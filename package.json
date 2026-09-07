@@ -9,7 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@prisma/client": "^7.10.0",
+    "dotenv": "^17.4.2",
     "next": "16.3.4",
+    "pg": "^8.23.0",
+    "prisma": "^8.0.0-rc.13",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
