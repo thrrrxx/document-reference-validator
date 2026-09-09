@@ -66,8 +66,10 @@ export default function LoginPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
+
+
       {/* Hero Section - Left Side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 flex-flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 flex-col justify-between p-12">
         <div>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
@@ -77,11 +79,13 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="text-white">
-          <h2 className="text-5xl font-bold mb-6 leading-tight">
+
+        {/* </div> */}
+        <div className="text-white text-justify px-50">
+          <h2 className="text-5xl font-bold mt-5 leading-tight">
             Validate. Organize. Trust.
           </h2>
-          <p className="text-blue-100 text-lg mb-6 max-w-md leading-relaxed">
+          <p className="text-blue-100  text-lg mt-6 mb-6 max-w-md leading-relaxed">
             Professional document reference validation for teams that care about accuracy.
             Streamline your validation workflow and maintain document integrity with confidence.
           </p>
@@ -113,8 +117,9 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-blue-200 text-sm">
-          © 2026 Document Reference Validator. All rights reserved.
+        <p className="text-black-200 text-sm mt-6">
+          © 2026 Validex. All rights reserved. Made with
+          <span className="text-red-500"> ❤️ </span> by <span className="font-bold">thrrrxx</span>
         </p>
       </div>
 
