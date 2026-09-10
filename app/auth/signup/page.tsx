@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { Eye, EyeOff, Mail, Lock, User, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import ThemeToggle from '@/components/theme/ThemeToggle';
 
 // Validation Schema untuk Sign Up
 const signupSchema = z
@@ -78,9 +77,9 @@ export default function SignUpPage() {
     };
 
     return (
-        <div className="flex h-screen bg-gray-50 dark:bg-[#0B0F17] overflow-hidden transition-colors duration-200">
+        <div className="flex h-screen bg-gray-50 overflow-hidden">
             {/* Hero Section - Left Side (Konsisten dengan Halaman Login) */}
-            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-400 via-blue-700 to-purple-800 animate-gradient flex-col justify-between p-12">
+            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 flex-col justify-between p-12">
                 <div>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
@@ -138,30 +137,25 @@ export default function SignUpPage() {
                     </div>
                 </div>
 
-                <p className="text-blue-100 text-sm mt-6">
+                <p className="text-black-200 text-sm mt-6">
                     © 2026 Validex. All rights reserved. Made with{' '}
-                    <span className="text-red-400">❤️</span> by <span className="font-bold text-white">thrrrxx</span>
+                    <span className="text-red-500">❤️</span>by <span className="font-bold">thrrrxx</span>
                 </p>
             </div>
 
             {/* Form Section - Right Side */}
-            <div className="relative flex w-full lg:w-1/2 flex-col justify-center px-8 sm:px-12 py-8 overflow-y-auto bg-white dark:bg-[#0B0F17] transition-colors duration-200">
-                {/* Dark Mode Switcher */}
-                <div className="absolute top-6 right-6 z-10">
-                    <ThemeToggle />
-                </div>
-
+            <div className="flex w-full lg:w-1/2 flex-col justify-center px-8 sm:px-12 py-8 overflow-y-auto">
                 <div className="max-w-md w-full mx-auto lg:mx-0">
                     {/* Header */}
                     <div className="mb-6">
-                        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Create an Account</h2>
-                        <p className="text-gray-600 dark:text-gray-400 mt-2">Join Validex to streamline your document validation</p>
+                        <h2 className="text-3xl font-bold text-gray-900">Create an Account</h2>
+                        <p className="text-gray-600 mt-2">Join Validex to streamline your document validation</p>
                     </div>
 
                     {/* Error Message */}
                     {error && (
-                        <div className="mb-5 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg">
-                            <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
+                        <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-red-700 text-sm">{error}</p>
                         </div>
                     )}
 
@@ -169,119 +163,115 @@ export default function SignUpPage() {
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                         {/* FULL NAME */}
                         <div>
-                            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1.5">
                                 Full Name
                             </label>
                             <div className="relative">
-                                <User className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                                <User className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
                                 <input
                                     {...register('name')}
                                     id="name"
                                     type="text"
                                     placeholder="John Doe"
                                     disabled={isLoading}
-                                    className={`w-full text-gray-900 dark:text-gray-100 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-                                        errors.name
-                                            ? 'border-red-300 dark:border-red-500 bg-red-50 dark:bg-red-950/30'
-                                            : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/80 hover:border-gray-400 dark:hover:border-gray-600'
-                                    }`}
+                                    className={`w-full text-gray-700 text-sm placeholder:text-gray-300 pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${errors.name
+                                        ? 'border-red-300 bg-red-50'
+                                        : 'border-gray-300 bg-white hover:border-gray-400'
+                                        }`}
                                 />
                             </div>
                             {errors.name && (
-                                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.name.message}</p>
+                                <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>
                             )}
                         </div>
 
                         {/* EMAIL */}
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
                                 Email Address
                             </label>
                             <div className="relative">
-                                <Mail className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                                <Mail className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
                                 <input
                                     {...register('email')}
                                     id="email"
                                     type="email"
                                     placeholder="you@example.com"
                                     disabled={isLoading}
-                                    className={`w-full text-gray-900 dark:text-gray-100 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-                                        errors.email
-                                            ? 'border-red-300 dark:border-red-500 bg-red-50 dark:bg-red-950/30'
-                                            : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/80 hover:border-gray-400 dark:hover:border-gray-600'
-                                    }`}
+                                    className={`w-full text-gray-700 text-sm placeholder:text-gray-300 pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${errors.email
+                                        ? 'border-red-300 bg-red-50'
+                                        : 'border-gray-300 bg-white hover:border-gray-400'
+                                        }`}
                                 />
                             </div>
                             {errors.email && (
-                                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.email.message}</p>
+                                <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
                             )}
                         </div>
 
                         {/* PASSWORD */}
                         <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
                                 Password
                             </label>
                             <div className="relative">
-                                <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                                <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
                                 <input
                                     {...register('password')}
                                     id="password"
                                     type={showPassword ? 'text' : 'password'}
                                     placeholder="At least 6 characters"
                                     disabled={isLoading}
-                                    className={`w-full text-gray-900 dark:text-gray-100 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 pl-10 pr-10 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-                                        errors.password
-                                            ? 'border-red-300 dark:border-red-500 bg-red-50 dark:bg-red-950/30'
-                                            : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/80 hover:border-gray-400 dark:hover:border-gray-600'
-                                    }`}
+                                    className={`w-full text-gray-700 text-sm placeholder:text-gray-300 pl-10 pr-10 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${errors.password
+                                        ? 'border-red-300 bg-red-50'
+                                        : 'border-gray-300 bg-white hover:border-gray-400'
+                                        }`}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
                                     disabled={isLoading}
-                                    className="absolute right-3 top-2.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
+                                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 focus:outline-none"
                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                                 >
                                     {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                                 </button>
                             </div>
                             {errors.password && (
-                                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.password.message}</p>
+                                <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
                             )}
                         </div>
 
                         {/* CONFIRM PASSWORD */}
                         <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
                                 Confirm Password
                             </label>
                             <div className="relative">
-                                <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                                <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
                                 <input
                                     {...register('confirmPassword')}
                                     id="confirmPassword"
                                     type={showConfirmPassword ? 'text' : 'password'}
                                     placeholder="Repeat your password"
                                     disabled={isLoading}
-                                    className={`w-full text-gray-900 dark:text-gray-100 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 pl-10 pr-10 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-                                        errors.confirmPassword
-                                            ? 'border-red-300 dark:border-red-500 bg-red-50 dark:bg-red-950/30'
-                                            : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/80 hover:border-gray-400 dark:hover:border-gray-600'
-                                    }`}
+                                    className={`w-full text-gray-700 text-sm placeholder:text-gray-300 pl-10 pr-10 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${errors.confirmPassword
+                                        ? 'border-red-300 bg-red-50'
+                                        : 'border-gray-300 bg-white hover:border-gray-400'
+                                        }`}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                     disabled={isLoading}
-                                    className="absolute right-3 top-2.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none"
+                                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 focus:outline-none"
                                     aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                                 >
                                     {showConfirmPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                                 </button>
                             </div>
                             {errors.confirmPassword && (
-                                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.confirmPassword.message}</p>
+                                <p className="text-red-600 text-sm mt-1">{errors.confirmPassword.message}</p>
                             )}
                         </div>
 
@@ -293,17 +283,17 @@ export default function SignUpPage() {
                                     id="termsAccepted"
                                     type="checkbox"
                                     disabled={isLoading}
-                                    className="w-4 h-4 mt-0.5 text-blue-600 bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 rounded"
+                                    className="w-4 h-4 mt-0.5 text-blue-600 bg-gray-100 border-gray-300 rounded"
                                 />
-                                <label htmlFor="termsAccepted" className="ml-2.5 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                                <label htmlFor="termsAccepted" className="ml-2.5 text-sm text-gray-600 cursor-pointer">
                                     I agree to the{' '}
-                                    <span className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">Terms of Service</span>{' '}
+                                    <span className="text-blue-600 hover:text-blue-700 font-medium font-semibold">Terms of Service</span>{' '}
                                     and{' '}
-                                    <span className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">Privacy Policy</span>
+                                    <span className="text-blue-600 hover:text-blue-700 font-medium font-semibold">Privacy Policy</span>
                                 </label>
                             </div>
                             {errors.termsAccepted && (
-                                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.termsAccepted.message}</p>
+                                <p className="text-red-600 text-sm mt-1">{errors.termsAccepted.message}</p>
                             )}
                         </div>
 
@@ -311,7 +301,7 @@ export default function SignUpPage() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 text-white font-semibold py-2.5 rounded-lg transition duration-200 flex items-center justify-center gap-2 shadow-xs shadow-blue-200 dark:shadow-none cursor-pointer"
+                            className="w-full mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2.5 rounded-lg transition duration-200 flex items-center justify-center gap-2"
                         >
                             {isLoading ? (
                                 <>
@@ -340,9 +330,9 @@ export default function SignUpPage() {
                     </form>
 
                     {/* FOOTER LINK BACK TO LOGIN */}
-                    <p className="text-center text-gray-600 dark:text-gray-400 text-sm mt-6">
+                    <p className="text-center text-gray-600 text-sm mt-6">
                         Already have an account?{' '}
-                        <Link href="/auth/login" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold">
+                        <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-semibold">
                             Sign in
                         </Link>
                     </p>
