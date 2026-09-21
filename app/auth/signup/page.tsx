@@ -79,7 +79,7 @@ export default function SignUpPage() {
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden">
             {/* Hero Section - Left Side (Konsisten dengan Halaman Login) */}
-            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 flex-col justify-between p-12">
+            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-sky-400 via-blue-600 to-purple-800 animate-gradient flex-col justify-between p-12">
                 <div>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
