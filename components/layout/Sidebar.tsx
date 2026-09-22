@@ -105,22 +105,40 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
     ? `${pathname}?${searchParams.toString()}`
     : pathname;
 
+  const isSubItemActive = (subPath: string) => {
+    const [subItemPath, subItemQuery] = subPath.split('?');
+    if (pathname !== subItemPath) return false;
+
+    if (subItemQuery) {
+      const targetParams = new URLSearchParams(subItemQuery);
+      for (const [key, val] of targetParams.entries()) {
+        if (searchParams?.get(key) !== val) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // Default item without query parameters (e.g. "All References", "All Documents")
+    // Active only when no active filter query parameters exist (or status === 'all')
+    const currentStatus = searchParams?.get('status');
+    const currentView = searchParams?.get('view');
+    const currentSort = searchParams?.get('sort');
+
+    return (!currentStatus || currentStatus === 'all') && !currentView && !currentSort;
+  };
+
   // Auto-expand item if current path matches any sub-item
   useEffect(() => {
     navigationItems.forEach((item) => {
       if (item.subItems) {
-        const isChildActive = item.subItems.some((sub) => {
-          if (sub.path.includes('?')) {
-            return currentFullPath === sub.path;
-          }
-          return pathname === sub.path;
-        });
+        const isChildActive = item.subItems.some((sub) => isSubItemActive(sub.path));
         if (isChildActive) {
           setExpandedItems((prev) => ({ ...prev, [item.name]: true }));
         }
       }
     });
-  }, [pathname, currentFullPath]);
+  }, [pathname, searchParams]);
 
   // Read saved expanded state from localStorage on mount
   useEffect(() => {
@@ -144,14 +162,6 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
       }
       return next;
     });
-  };
-
-  const isSubItemActive = (subPath: string) => {
-    if (subPath.includes('?')) {
-      return currentFullPath === subPath;
-    }
-    // Exact match for base path without query params
-    return pathname === subPath && (!searchParams || searchParams.toString() === '');
   };
 
   const isParentActive = (item: NavItem) => {
