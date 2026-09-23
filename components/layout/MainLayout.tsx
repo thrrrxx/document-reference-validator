@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Menu, Search, Bell, User, CheckCircle2 } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 import Sidebar from './Sidebar';
 import ThemeToggle from '@/components/theme/ThemeToggle';
 
@@ -63,15 +63,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
             {/* Theme Toggle Button (Light/Dark Mode) */}
             <ThemeToggle />
 
-            {/* Notification Bell */}
-            <button
-              type="button"
-              className="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-              aria-label="View notifications"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0F172A]" />
-            </button>
 
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-0.5 sm:mx-1 hidden sm:block" />
 

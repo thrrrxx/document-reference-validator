@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   User,
-  SlidersHorizontal,
-  KeyRound,
   ShieldCheck,
   Settings,
   Sparkles
@@ -27,18 +25,6 @@ export default function SettingsHeader({ title, description }: SettingsHeaderPro
       icon: User,
       // Matches both /dashboard/settings/profile and root /dashboard/settings
       isActive: pathname === '/dashboard/settings/profile' || pathname === '/dashboard/settings',
-    },
-    {
-      name: 'Preferences',
-      path: '/dashboard/settings/preferences',
-      icon: SlidersHorizontal,
-      isActive: pathname === '/dashboard/settings/preferences',
-    },
-    {
-      name: 'API Keys',
-      path: '/dashboard/settings/api-keys',
-      icon: KeyRound,
-      isActive: pathname === '/dashboard/settings/api-keys',
     },
     {
       name: 'Security',

@@ -160,13 +160,14 @@ export default function ReferencesClient() {
             <Download className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <span>Export CSV</span>
           </button>
-          <Link
-            href="/dashboard/documents"
+          <button
+            type="button"
+            onClick={() => showNotification('Revalidating all references with live registry lookup...')}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-xs shadow-blue-200 dark:shadow-none"
           >
-            <FileText className="w-4 h-4" />
-            <span>Upload Document</span>
-          </Link>
+            <RefreshCw className="w-4 h-4" />
+            <span>Revalidate All</span>
+          </button>
         </div>
       </div>
 

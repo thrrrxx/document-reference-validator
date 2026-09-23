@@ -12,32 +12,6 @@ export interface UserProfile {
   memberSince: string;
 }
 
-export interface ValidationPreferences {
-  autoVerifyThreshold: number; // percentage (e.g. 85%)
-  enableCrossrefLookup: boolean;
-  enablePubMedLookup: boolean;
-  enableIeeeLookup: boolean;
-  enableSemanticScholarLookup: boolean;
-  detectDuplicates: boolean;
-  strictDoiFormat: boolean;
-  flagRetractedPapers: boolean;
-  emailWeeklyDigest: boolean;
-  emailBrokenLinkAlerts: boolean;
-  browserNotifications: boolean;
-  tableDensity: 'comfortable' | 'compact';
-  dateFormat: 'YYYY-MM-DD' | 'DD/MM/YYYY' | 'MM/DD/YYYY';
-}
-
-export interface ApiKeyItem {
-  id: string;
-  name: string;
-  keyPrefix: string;
-  keyMasked: string;
-  scope: 'Read-only' | 'Full Validator Access' | 'Admin';
-  createdAt: string;
-  lastUsedAt: string;
-  status: 'active' | 'revoked';
-}
 
 export interface ActiveSession {
   id: string;
@@ -63,54 +37,6 @@ export const INITIAL_USER_PROFILE: UserProfile = {
   memberSince: 'March 2025',
 };
 
-export const INITIAL_PREFERENCES: ValidationPreferences = {
-  autoVerifyThreshold: 85,
-  enableCrossrefLookup: true,
-  enablePubMedLookup: true,
-  enableIeeeLookup: true,
-  enableSemanticScholarLookup: true,
-  detectDuplicates: true,
-  strictDoiFormat: true,
-  flagRetractedPapers: true,
-  emailWeeklyDigest: true,
-  emailBrokenLinkAlerts: true,
-  browserNotifications: false,
-  tableDensity: 'comfortable',
-  dateFormat: 'YYYY-MM-DD',
-};
-
-export const INITIAL_API_KEYS: ApiKeyItem[] = [
-  {
-    id: 'KEY-001',
-    name: 'Production Ingestion Service',
-    keyPrefix: 'val_live_',
-    keyMasked: 'val_live_••••••••••••982a',
-    scope: 'Full Validator Access',
-    createdAt: '12 Aug 2026',
-    lastUsedAt: '2 mins ago',
-    status: 'active',
-  },
-  {
-    id: 'KEY-002',
-    name: 'CI/CD Pipeline Citation Linter',
-    keyPrefix: 'val_live_',
-    keyMasked: 'val_live_••••••••••••47fc',
-    scope: 'Read-only',
-    createdAt: '01 Sep 2026',
-    lastUsedAt: 'Yesterday',
-    status: 'active',
-  },
-  {
-    id: 'KEY-003',
-    name: 'Staging Integration Key',
-    keyPrefix: 'val_test_',
-    keyMasked: 'val_test_••••••••••••3f1b',
-    scope: 'Admin',
-    createdAt: '15 Sep 2026',
-    lastUsedAt: '3 days ago',
-    status: 'active',
-  },
-];
 
 export const INITIAL_SESSIONS: ActiveSession[] = [
   {

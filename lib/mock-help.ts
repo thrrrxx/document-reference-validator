@@ -42,14 +42,14 @@ export const MOCK_SYSTEM_STATUSES: SystemServiceStatus[] = [
 export const MOCK_QUICK_GUIDES: QuickGuideItem[] = [
   {
     id: 'guide-1',
-    title: 'Validating Your First Document in 3 Steps',
-    description: 'Upload manuscripts in PDF, DOCX, or LaTeX, initiate automated citation parsing, and inspect flagged errors.',
+    title: 'Validating References in 3 Steps',
+    description: 'Track citations, initiate automated registry lookup, and inspect flagged errors.',
     badge: 'Beginner',
     readTime: '3 min read',
     steps: [
-      'Navigate to Documents & click Upload Document to submit your file.',
-      'Validex automatically extracts bibliography strings and initiates registry DOI queries.',
-      'Inspect the generated validation card, resolve pending references, and export clean audit reports.',
+      'Navigate to References to inspect your bibliography and citations.',
+      'Validex automatically extracts DOI metadata and initiates Crossref & PubMed queries.',
+      'Inspect the generated validation card, resolve pending references, and export clean datasets.',
     ],
   },
   {
@@ -59,7 +59,7 @@ export const MOCK_QUICK_GUIDES: QuickGuideItem[] = [
     badge: 'Citations',
     readTime: '5 min read',
     steps: [
-      'Filter references by "Failed / Broken" in the References or Analytics tab.',
+      'Filter references by "Failed / Broken" in the References tab.',
       'Check the issue details banner (e.g. Unresolved DOI, superseded edition, or author variance).',
       'Click Revalidate to query Crossref updates or manually update the canonical citation string.',
     ],
@@ -110,14 +110,14 @@ export const MOCK_FAQS: FaqItem[] = [
   {
     id: 'faq-5',
     question: 'How can I connect my Zotero or Mendeley bibliography?',
-    answer: 'Navigate to Settings > API Keys > Ecosystem Integrations. Click "Sync Now" on Zotero to link your cloud collection or export your .bib / .ris file directly into the Documents upload area.',
+    answer: 'You can export your .bib or .ris citation file directly from Zotero or Mendeley and import it seamlessly into Validex for instant verification.',
     category: 'integrations',
     tags: ['zotero', 'mendeley', 'bibtex', 'sync'],
   },
   {
     id: 'faq-6',
     question: 'What are the rate limits for the Developer REST API?',
-    answer: 'Standard workspace accounts include 1,000 API requests per hour. Enterprise accounts support concurrent bulk validations with up to 100,000 queries per day. You can monitor your key usage under Settings > API Keys.',
+    answer: 'Standard workspace accounts include 1,000 API requests per hour. Enterprise accounts support concurrent bulk validations with up to 100,000 queries per day.',
     category: 'integrations',
     tags: ['api', 'rate limit', 'developer', 'endpoint'],
   },
@@ -130,8 +130,8 @@ export const MOCK_FAQS: FaqItem[] = [
   },
   {
     id: 'faq-8',
-    question: 'How do I add team members or export audit reports for compliance?',
-    answer: 'To export compliance-ready audit summaries in PDF or CSV, go to Analytics > Export Reports. You can filter by date range, inclusion of unverified citations, and generate instant downloadable manifests.',
+    question: 'How do I export audit reports for compliance?',
+    answer: 'To export compliance-ready audit summaries, you can filter citations by date range and validation status directly in the References view and export data manifests.',
     category: 'account',
     tags: ['export', 'audit', 'compliance', 'reports'],
   },

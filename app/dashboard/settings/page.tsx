@@ -3,7 +3,7 @@ import ProfileSettingsClient from '@/components/settings/ProfileSettingsClient';
 
 export const metadata = {
   title: 'Settings | Validex',
-  description: 'Manage profile credentials, preferences, API keys, and workspace security.',
+  description: 'Manage profile credentials and workspace security.',
 };
 
 export default function SettingsPage() {

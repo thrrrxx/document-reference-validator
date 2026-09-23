@@ -481,10 +481,10 @@ export default function HelpSupportClient() {
               Explore API specifications, webhooks, and SDKs.
             </p>
             <Link
-              href="/dashboard/settings/api-keys"
+              href="/dashboard/settings"
               className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline mt-2"
             >
-              <span>API Settings</span> &rarr;
+              <span>Account Settings</span> &rarr;
             </Link>
           </div>
         </div>

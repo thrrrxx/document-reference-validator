@@ -99,13 +99,6 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/documents"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition shadow-xs"
-          >
-            <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <span>Browse Documents</span>
-          </Link>
-          <Link
             href="/dashboard/references"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-xs shadow-blue-200 dark:shadow-none"
           >

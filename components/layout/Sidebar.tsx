@@ -6,8 +6,6 @@ import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import {
   Home,
   Search,
-  FileText,
-  BarChart3,
   Settings,
   HelpCircle,
   ChevronDown,
@@ -15,8 +13,7 @@ import {
   LogOut,
   User,
   X,
-  ShieldCheck,
-  Bell
+  ShieldCheck
 } from 'lucide-react';
 
 interface SubItem {
@@ -52,34 +49,11 @@ const navigationItems: NavItem[] = [
     ],
   },
   {
-    name: 'Documents',
-    path: '/dashboard/documents',
-    icon: FileText,
-    subItems: [
-      { name: 'All Documents', path: '/dashboard/documents' },
-      { name: 'Recent', path: '/dashboard/documents?sort=recent' },
-      { name: 'Trash', path: '/dashboard/documents?view=trash' },
-    ],
-  },
-  {
-    name: 'Analytics',
-    path: '/dashboard/analytics',
-    icon: BarChart3,
-    subItems: [
-      { name: 'Overview', path: '/dashboard/analytics' },
-      { name: 'Validation Rate', path: '/dashboard/analytics/validation-rate' },
-      { name: 'Document Stats', path: '/dashboard/analytics/document-stats' },
-      { name: 'Export Reports', path: '/dashboard/analytics/export' },
-    ],
-  },
-  {
     name: 'Settings',
     path: '/dashboard/settings',
     icon: Settings,
     subItems: [
       { name: 'Profile', path: '/dashboard/settings/profile' },
-      { name: 'Preferences', path: '/dashboard/settings/preferences' },
-      { name: 'API Keys', path: '/dashboard/settings/api-keys' },
       { name: 'Security', path: '/dashboard/settings/security' },
     ],
   },
