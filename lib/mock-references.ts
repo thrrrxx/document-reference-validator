@@ -1,152 +1,182 @@
+export type DocumentFlowCode = 'BOM' | 'PR' | 'PO' | 'GRN' | 'PI' | 'PP';
+
+export interface DocumentFlowStep {
+  step: number;
+  code: DocumentFlowCode;
+  label: string;
+  docNumber?: string;
+  status: 'present' | 'missing';
+  date?: string;
+  notes?: string;
+}
+
 export interface ReferenceItem {
-  id: string;
-  citation: string;
-  sourceDoc: string;
-  doiOrUrl?: string;
-  status: 'valid' | 'pending' | 'failed';
-  matchedConfidence: number; // e.g. 98%
-  publicationYear?: number;
-  authors?: string;
-  journalOrPublisher?: string;
+  id: string; // e.g. 'FLOW-8921'
+  title: string;
+  vendor: string;
+  totalAmount: string;
+  status: 'complete' | 'missing';
+  flowSteps: DocumentFlowStep[];
+  missingDoc?: string;
   issueDetails?: string;
   validatedAt: string;
-  category: 'journal' | 'standard' | 'report' | 'book' | 'web';
+  managedBy?: string;
 }
+
+export type DocumentFlowItem = ReferenceItem;
+
+export const FLOW_PIPELINE_ORDER: { code: DocumentFlowCode; label: string; description: string }[] = [
+  { code: 'BOM', label: 'Bill of Materials', description: 'Daftar rincian material & kebutuhan komponen awal' },
+  { code: 'PR', label: 'Purchase Requisition', description: 'Pengajuan permintaan pembelian kebutuhan material' },
+  { code: 'PO', label: 'Purchase Order', description: 'Penerbitan pesanan pembelian resmi kepada vendor' },
+  { code: 'GRN', label: 'Goods Received Note', description: 'Surat tanda penerimaan barang fisik di gudang' },
+  { code: 'PI', label: 'Purchase Invoice', description: 'Faktur tagihan pembayaran yang diajukan vendor' },
+  { code: 'PP', label: 'Payment Payment', description: 'Dokumen / bukti proses pembayaran lunas ke vendor' },
+];
 
 export const MOCK_REFERENCES: ReferenceItem[] = [
   {
-    id: 'REF-8921',
-    citation: 'He, K., Zhang, X., Ren, S., & Sun, J. (2016). Deep Residual Learning for Image Recognition. Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 770-778.',
-    sourceDoc: 'Annual_AI_Research_Report_2026.pdf',
-    doiOrUrl: 'https://doi.org/10.1109/CVPR.2016.90',
-    status: 'valid',
-    matchedConfidence: 99,
-    publicationYear: 2016,
-    authors: 'K. He, X. Zhang, S. Ren, J. Sun',
-    journalOrPublisher: 'IEEE CVPR',
+    id: 'FLOW-8921',
+    title: 'Perakitan Panel Distribusi Daya Listrik Tier-3 Data Center',
+    vendor: 'PT. Datacenter Solusi Utama',
+    totalAmount: 'Rp 285.000.000',
+    status: 'complete',
+    flowSteps: [
+      { step: 1, code: 'BOM', label: 'Bill of Materials', docNumber: 'BOM-2026-0042', status: 'present', date: '08 Jan 2026', notes: 'Master list 24 komponen kelistrikan tervalidasi' },
+      { step: 2, code: 'PR', label: 'Purchase Requisition', docNumber: 'PR-2026-0104', status: 'present', date: '10 Jan 2026', notes: 'Approved Head of Infrastructure' },
+      { step: 3, code: 'PO', label: 'Purchase Order', docNumber: 'PO-2026-0312', status: 'present', date: '14 Jan 2026', notes: 'PO diterbitkan ke vendor rekanan' },
+      { step: 4, code: 'GRN', label: 'Goods Received Note', docNumber: 'GRN-2026-0520', status: 'present', date: '22 Jan 2026', notes: 'Diterima utuh di DC Hall 2' },
+      { step: 5, code: 'PI', label: 'Purchase Invoice', docNumber: 'PI-2026-1189', status: 'present', date: '25 Jan 2026', notes: 'Faktur pajak & invoice 3-Way matched' },
+      { step: 6, code: 'PP', label: 'Payment Payment', docNumber: 'PP-2026-0811', status: 'present', date: '30 Jan 2026', notes: 'Pelunasan transfer bank terverifikasi' },
+    ],
     validatedAt: '10 mins ago',
-    category: 'journal',
+    managedBy: 'Budi Santoso (Procurement Lead)',
   },
   {
-    id: 'REF-8920',
-    citation: 'ISO/IEC 27001:2022 Information security, cybersecurity and privacy protection — Information security management systems — Requirements.',
-    sourceDoc: 'Enterprise_Compliance_Doc_v4.docx',
-    doiOrUrl: 'https://www.iso.org/standard/27001',
-    status: 'pending',
-    matchedConfidence: 74,
-    publicationYear: 2022,
-    authors: 'ISO/IEC JTC 1/SC 27',
-    journalOrPublisher: 'International Organization for Standardization',
-    issueDetails: 'Edition 3 revision metadata pending manual verification against ISO catalogue.',
+    id: 'FLOW-8920',
+    title: 'Pengadaan Switch Core Cisco Catalyst & Modul Fiber SFP+',
+    vendor: 'PT. Jaringan Dinamika Telematika',
+    totalAmount: 'Rp 120.000.000',
+    status: 'missing',
+    missingDoc: 'PR (Purchase Requisition)',
+    issueDetails: 'PO-2026-0488 terbit langsung dari BOM tanpa adanya dokumen PR awal. Seharusnya alur wajib memiliki PR yang di-approve sebelum PO dibuat.',
+    flowSteps: [
+      { step: 1, code: 'BOM', label: 'Bill of Materials', docNumber: 'BOM-2026-0038', status: 'present', date: '12 Feb 2026', notes: 'Spesifikasi teknis jaringan approved' },
+      { step: 2, code: 'PR', label: 'Purchase Requisition', status: 'missing', notes: 'PR dilewati / tidak ditemukan pada sistem ERP' },
+      { step: 3, code: 'PO', label: 'Purchase Order', docNumber: 'PO-2026-0488', status: 'present', date: '18 Feb 2026', notes: 'PO terbit langsung tanpa PR' },
+      { step: 4, code: 'GRN', label: 'Goods Received Note', docNumber: 'GRN-2026-0610', status: 'present', date: '26 Feb 2026', notes: 'Barang fisik diterima tim IT Ops' },
+      { step: 5, code: 'PI', label: 'Purchase Invoice', docNumber: 'PI-2026-2004', status: 'present', date: '02 Mar 2026', notes: 'Invoice masuk sistem penagihan' },
+      { step: 6, code: 'PP', label: 'Payment Payment', docNumber: 'PP-2026-1502', status: 'present', date: '06 Mar 2026', notes: 'Pembayaran tertahan validasi PR' },
+    ],
     validatedAt: '35 mins ago',
-    category: 'standard',
+    managedBy: 'Ahmad Fauzi (IT Purchasing)',
   },
   {
-    id: 'REF-8919',
-    citation: 'NIST Special Publication 800-53 Rev. 5: Security and Privacy Controls for Information Systems and Organizations.',
-    sourceDoc: 'Security_Architecture_Blueprint.pdf',
-    doiOrUrl: 'https://doi.org/10.6028/NIST.SP.800-53r5',
-    status: 'valid',
-    matchedConfidence: 98,
-    publicationYear: 2020,
-    authors: 'Joint Task Force',
-    journalOrPublisher: 'National Institute of Standards and Technology',
+    id: 'FLOW-8919',
+    title: 'Pabrikasi Struktur Rangka Meja & Workstation Ergonomis',
+    vendor: 'CV. Karya Megah Interior',
+    totalAmount: 'Rp 48.200.000',
+    status: 'missing',
+    missingDoc: 'BOM (Bill of Materials)',
+    issueDetails: 'PR-2026-0230 dibuat tanpa melampirkan master BOM komponen fabrikasi meja kerja, melanggar urutan dokumen baku (BOM → PR).',
+    flowSteps: [
+      { step: 1, code: 'BOM', label: 'Bill of Materials', status: 'missing', notes: 'Master list komponen fabrikasi belum diinput' },
+      { step: 2, code: 'PR', label: 'Purchase Requisition', docNumber: 'PR-2026-0230', status: 'present', date: '12 Feb 2026', notes: 'Diajukan bagian General Affairs' },
+      { step: 3, code: 'PO', label: 'Purchase Order', docNumber: 'PO-2026-0512', status: 'present', date: '16 Feb 2026', notes: 'PO resmi 20 unit workstation' },
+      { step: 4, code: 'GRN', label: 'Goods Received Note', docNumber: 'GRN-2026-0740', status: 'present', date: '24 Feb 2026', notes: 'Diterima gudang GA' },
+      { step: 5, code: 'PI', label: 'Purchase Invoice', docNumber: 'PI-2026-3105', status: 'present', date: '01 Mar 2026', notes: 'Faktur penagihan vendor' },
+      { step: 6, code: 'PP', label: 'Payment Payment', docNumber: 'PP-2026-2210', status: 'present', date: '05 Mar 2026', notes: 'Bukti transfer kas' },
+    ],
     validatedAt: '2 hours ago',
-    category: 'standard',
+    managedBy: 'Rian Pratama (General Affairs)',
   },
   {
-    id: 'REF-8918',
-    citation: 'WHO Technical Report Series No. 986 - Annex 2: WHO good manufacturing practices for pharmaceutical products: main principles.',
-    sourceDoc: 'Medical_Device_Submission_Draft.pdf',
-    doiOrUrl: 'https://apps.who.int/iris/handle/10665/129719',
-    status: 'failed',
-    matchedConfidence: 41,
-    publicationYear: 2014,
-    authors: 'World Health Organization',
-    journalOrPublisher: 'WHO Guidelines Approved by the Guidelines Review Committee',
-    issueDetails: 'Permanent redirect loop detected on Iris repository; citation link broken (HTTP 404).',
+    id: 'FLOW-8918',
+    title: 'Pengadaan Modul Kontrol HVAC & Sensor Suhu Otomatis Gedung',
+    vendor: 'PT. Daya Prima Elektrika',
+    totalAmount: 'Rp 94.500.000',
+    status: 'complete',
+    flowSteps: [
+      { step: 1, code: 'BOM', label: 'Bill of Materials', docNumber: 'BOM-2026-0051', status: 'present', date: '03 Jan 2026', notes: 'BOM modul sensor & kabel kontrol' },
+      { step: 2, code: 'PR', label: 'Purchase Requisition', docNumber: 'PR-2026-0155', status: 'present', date: '05 Jan 2026', notes: 'PR otomatis dari modul ERP' },
+      { step: 3, code: 'PO', label: 'Purchase Order', docNumber: 'PO-2026-0220', status: 'present', date: '09 Jan 2026', notes: 'PO resmi telah terbit' },
+      { step: 4, code: 'GRN', label: 'Goods Received Note', docNumber: 'GRN-2026-0410', status: 'present', date: '15 Jan 2026', notes: 'Barang diinspeksi QA gudang' },
+      { step: 5, code: 'PI', label: 'Purchase Invoice', docNumber: 'PI-2026-0922', status: 'present', date: '18 Jan 2026', notes: 'Invoice diverifikasi tim Akuntansi' },
+      { step: 6, code: 'PP', label: 'Payment Payment', docNumber: 'PP-2026-0640', status: 'present', date: '22 Jan 2026', notes: 'Transfer via virtual account B2B' },
+    ],
     validatedAt: 'Yesterday',
-    category: 'report',
+    managedBy: 'Dewi Lestari (Finance & Accounting)',
   },
   {
-    id: 'REF-8917',
-    citation: 'Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). Attention Is All You Need. Advances in Neural Information Processing Systems (NeurIPS), 30, 5998–6008.',
-    sourceDoc: 'Annual_AI_Research_Report_2026.pdf',
-    doiOrUrl: 'https://arxiv.org/abs/1706.03762',
-    status: 'valid',
-    matchedConfidence: 100,
-    publicationYear: 2017,
-    authors: 'A. Vaswani et al.',
-    journalOrPublisher: 'NeurIPS 2017',
+    id: 'FLOW-8917',
+    title: 'Perakitan Server Blade & Penyediaan Komponen SSD NVMe Enterprise',
+    vendor: 'PT. Sentra Komputindo Jaya',
+    totalAmount: 'Rp 145.000.000',
+    status: 'missing',
+    missingDoc: 'GRN (Goods Received Note)',
+    issueDetails: 'Invoice tagihan PI-2026-1402 sudah diajukan vendor, namun dokumen tanda terima barang (GRN) fisik di gudang belum diunggah atau diverifikasi.',
+    flowSteps: [
+      { step: 1, code: 'BOM', label: 'Bill of Materials', docNumber: 'BOM-2026-0029', status: 'present', date: '06 Jan 2026', notes: 'BOM server blade storage' },
+      { step: 2, code: 'PR', label: 'Purchase Requisition', docNumber: 'PR-2026-0188', status: 'present', date: '10 Jan 2026', notes: 'PR alokasi IT Engineering' },
+      { step: 3, code: 'PO', label: 'Purchase Order', docNumber: 'PO-2026-0290', status: 'present', date: '15 Jan 2026', notes: 'PO komponen server' },
+      { step: 4, code: 'GRN', label: 'Goods Received Note', status: 'missing', notes: 'Surat tanda terima GRN gudang belum ada' },
+      { step: 5, code: 'PI', label: 'Purchase Invoice', docNumber: 'PI-2026-1402', status: 'present', date: '05 Feb 2026', notes: 'Tagihan vendor ditahan' },
+      { step: 6, code: 'PP', label: 'Payment Payment', docNumber: 'PP-2026-0955', status: 'present', date: '10 Feb 2026', notes: 'Draft pembayaran disiapkan' },
+    ],
     validatedAt: '1 day ago',
-    category: 'journal',
+    managedBy: 'Hendro Prasetyo (Procurement Officer)',
   },
   {
-    id: 'REF-8916',
-    citation: 'European Commission (2024). Regulation (EU) 2024/1689 laying down harmonised rules on artificial intelligence (Artificial Intelligence Act).',
-    sourceDoc: 'EU_Market_Compliance_Strategy.pdf',
-    doiOrUrl: 'http://data.europa.eu/eli/reg/2024/1689/oj',
-    status: 'pending',
-    matchedConfidence: 82,
-    publicationYear: 2024,
-    authors: 'European Parliament and Council of the European Union',
-    journalOrPublisher: 'Official Journal of the European Union',
-    issueDetails: 'New consolidated version amendment requires ratification comparison.',
+    id: 'FLOW-8916',
+    title: 'Pengadaan Spare Part Mekanikal & Kelistrikan Generator Set 50kVA',
+    vendor: 'PT. Mega Elektrika Mandiri',
+    totalAmount: 'Rp 65.000.000',
+    status: 'complete',
+    flowSteps: [
+      { step: 1, code: 'BOM', label: 'Bill of Materials', docNumber: 'BOM-2026-0063', status: 'present', date: '01 Jan 2026', notes: 'BOM maintenance rutin genset' },
+      { step: 2, code: 'PR', label: 'Purchase Requisition', docNumber: 'PR-2026-0090', status: 'present', date: '02 Jan 2026', notes: 'PR perawatan fasilitas kantor' },
+      { step: 3, code: 'PO', label: 'Purchase Order', docNumber: 'PO-2026-0180', status: 'present', date: '06 Jan 2026', notes: 'PO paket part resmi' },
+      { step: 4, code: 'GRN', label: 'Goods Received Note', docNumber: 'GRN-2026-0330', status: 'present', date: '14 Jan 2026', notes: 'Part diinspeksi teknisi gedung' },
+      { step: 5, code: 'PI', label: 'Purchase Invoice', docNumber: 'PI-2026-0741', status: 'present', date: '20 Jan 2026', notes: 'Invoice disetujui tanpa selisih' },
+      { step: 6, code: 'PP', label: 'Payment Payment', docNumber: 'PP-2026-0511', status: 'present', date: '25 Jan 2026', notes: 'Bukti transfer kliring BI-FAST' },
+    ],
     validatedAt: '2 days ago',
-    category: 'standard',
+    managedBy: 'Siti Rahma (Audit & Compliance)',
   },
   {
-    id: 'REF-8915',
-    citation: 'Smith, J. A., & Doe, R. B. (2019). Quantum Cryptographic Protocols in Distributed Power Grids. IEEE Transactions on Smart Grid, 10(4), 4120-4129.',
-    sourceDoc: 'Smart_Grid_Modernization_Whitepaper.pdf',
-    doiOrUrl: 'https://doi.org/10.1109/TSG.2019.0041201',
-    status: 'failed',
-    matchedConfidence: 35,
-    publicationYear: 2019,
-    authors: 'J. A. Smith, R. B. Doe',
-    journalOrPublisher: 'IEEE Transactions on Smart Grid',
-    issueDetails: 'DOI not found in CrossRef database. Possible typo in volume index (vol 10 issue 4).',
+    id: 'FLOW-8915',
+    title: 'Pengadaan Laptop ThinkPad & Monitor IPS 27-inch Divisi Dev',
+    vendor: 'PT. Sentra Komputindo Jaya',
+    totalAmount: 'Rp 92.000.000',
+    status: 'missing',
+    missingDoc: 'PP (Payment Payment)',
+    issueDetails: 'Alur dokumen sudah mencapai tahap Purchase Invoice (PI-2026-3890), namun bukti pembayaran akhir (Payment Payment / PP) belum selesai diproses atau belum diunggah.',
+    flowSteps: [
+      { step: 1, code: 'BOM', label: 'Bill of Materials', docNumber: 'BOM-2026-0077', status: 'present', date: '10 Feb 2026', notes: 'Daftar alokasi laptop & peripheral dev' },
+      { step: 2, code: 'PR', label: 'Purchase Requisition', docNumber: 'PR-2026-0310', status: 'present', date: '14 Feb 2026', notes: 'PR diajukan Engineering Lead' },
+      { step: 3, code: 'PO', label: 'Purchase Order', docNumber: 'PO-2026-0560', status: 'present', date: '18 Feb 2026', notes: 'PO pengadaan 12 unit laptop' },
+      { step: 4, code: 'GRN', label: 'Goods Received Note', docNumber: 'GRN-2026-0810', status: 'present', date: '24 Feb 2026', notes: 'Barang diterima lengkap di IT support' },
+      { step: 5, code: 'PI', label: 'Purchase Invoice', docNumber: 'PI-2026-3890', status: 'present', date: '01 Mar 2026', notes: 'Invoice lolos verifikasi pajak' },
+      { step: 6, code: 'PP', label: 'Payment Payment', status: 'missing', notes: 'Bukti transfer pembayaran PP belum ada' },
+    ],
     validatedAt: '3 days ago',
-    category: 'journal',
+    managedBy: 'Budi Santoso (Procurement Lead)',
   },
   {
-    id: 'REF-8914',
-    citation: 'IEEE 1547-2018: IEEE Standard for Interconnection and Interoperability of Distributed Energy Resources with Associated Electric Power Systems Interfaces.',
-    sourceDoc: 'Renewable_Integration_Specs_v2.pdf',
-    doiOrUrl: 'https://standards.ieee.org/ieee/1547/5847/',
-    status: 'valid',
-    matchedConfidence: 96,
-    publicationYear: 2018,
-    authors: 'IEEE Standards Association',
-    journalOrPublisher: 'IEEE',
+    id: 'FLOW-8914',
+    title: 'Fabrikasi Rakit Baterai UPS Modular 120kVA Data Center',
+    vendor: 'PT. Daya Prima Elektrika',
+    totalAmount: 'Rp 160.000.000',
+    status: 'complete',
+    flowSteps: [
+      { step: 1, code: 'BOM', label: 'Bill of Materials', docNumber: 'BOM-2026-0080', status: 'present', date: '20 Jan 2026', notes: 'BOM 40 cell baterai gel & rack' },
+      { step: 2, code: 'PR', label: 'Purchase Requisition', docNumber: 'PR-2026-0410', status: 'present', date: '24 Jan 2026', notes: 'PR disetujui Head of Facilities' },
+      { step: 3, code: 'PO', label: 'Purchase Order', docNumber: 'PO-2026-0710', status: 'present', date: '28 Jan 2026', notes: 'PO diterbitkan ke vendor' },
+      { step: 4, code: 'GRN', label: 'Goods Received Note', docNumber: 'GRN-2026-0950', status: 'present', date: '08 Feb 2026', notes: 'Uji fungsi tegangan & GRN di-approve' },
+      { step: 5, code: 'PI', label: 'Purchase Invoice', docNumber: 'PI-2026-4412', status: 'present', date: '14 Feb 2026', notes: 'Faktur pajak lengkap' },
+      { step: 6, code: 'PP', label: 'Payment Payment', docNumber: 'PP-2026-3390', status: 'present', date: '20 Feb 2026', notes: 'Settlement lunas rekening koran' },
+    ],
     validatedAt: '4 days ago',
-    category: 'standard',
-  },
-  {
-    id: 'REF-8913',
-    citation: 'World Energy Outlook 2025: Transition Pathways and Grid Resilience Analysis. International Energy Agency (IEA).',
-    sourceDoc: 'Global_Energy_Forecast_2026.pdf',
-    doiOrUrl: 'https://www.iea.org/reports/world-energy-outlook-2025',
-    status: 'pending',
-    matchedConfidence: 79,
-    publicationYear: 2025,
-    authors: 'International Energy Agency',
-    journalOrPublisher: 'IEA Publications',
-    issueDetails: 'Citation points to embargoed preview page; public DOI resolver has changed.',
-    validatedAt: '5 days ago',
-    category: 'report',
-  },
-  {
-    id: 'REF-8912',
-    citation: 'Chen, L., Wang, Y., & Zhang, T. (2023). High-Voltage Direct Current (HVDC) Transmission Efficiency Benchmarks in Renewable Substations. Energy Reports, 9, 1205-1218.',
-    sourceDoc: 'HVDC_Substation_Design_Draft.pdf',
-    doiOrUrl: 'https://doi.org/10.1016/j.egyr.2023.01.112',
-    status: 'valid',
-    matchedConfidence: 95,
-    publicationYear: 2023,
-    authors: 'L. Chen, Y. Wang, T. Zhang',
-    journalOrPublisher: 'Energy Reports (Elsevier)',
-    validatedAt: '1 week ago',
-    category: 'journal',
+    managedBy: 'Ahmad Fauzi (IT Purchasing)',
   },
 ];

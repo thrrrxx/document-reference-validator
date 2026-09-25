@@ -40,12 +40,11 @@ const navigationItems: NavItem[] = [
     name: 'References',
     path: '/dashboard/references',
     icon: Search,
-    badge: 12,
+    badge: 4,
     subItems: [
-      { name: 'All References', path: '/dashboard/references' },
-      { name: 'Pending Review', path: '/dashboard/references?status=pending', badge: 12 },
-      { name: 'Valid', path: '/dashboard/references?status=valid' },
-      { name: 'Failed', path: '/dashboard/references?status=failed' },
+      { name: 'All Document', path: '/dashboard/references' },
+      { name: 'Missing', path: '/dashboard/references?status=missing', badge: 4 },
+      { name: 'Complete', path: '/dashboard/references?status=complete' },
     ],
   },
   {
@@ -86,7 +85,12 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
     if (subItemQuery) {
       const targetParams = new URLSearchParams(subItemQuery);
       for (const [key, val] of targetParams.entries()) {
-        if (searchParams?.get(key) !== val) {
+        const currentVal = searchParams?.get(key);
+        if (key === 'status') {
+          if (val === 'missing' && (currentVal === 'missing' || currentVal === 'pending')) continue;
+          if (val === 'complete' && (currentVal === 'complete' || currentVal === 'valid')) continue;
+        }
+        if (currentVal !== val) {
           return false;
         }
       }
