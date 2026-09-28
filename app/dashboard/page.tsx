@@ -106,7 +106,7 @@ export default function DashboardPage() {
                   <span className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
                     {stat.value}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">alur dokumen</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Alur Dokumen</span>
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
                   {stat.subtitle}
