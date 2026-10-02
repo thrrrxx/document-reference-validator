@@ -2,7 +2,7 @@
 name: prisma-composer-core-concepts
 metadata:
   library: "@prisma/composer"
-  library_version: "0.25.0"
+  library_version: "0.19.0"
   version: 2026.9.1
 description: >-
   Use when deploying or managing an app that uses Prisma Composer
@@ -288,7 +288,12 @@ another stage's resources is kept. Destroy never creates anything:
 destroying a
 never-deployed stage fails rather than standing one up.
 
-**The engine underneath is alchemy.** Convergence is executed by [alchemy](https://alchemy.run), a third-party infrastructure-as-code engine that arrives as an ordinary, exactly-pinned npm dependency of `@prisma/composer` (2.0.0-beta.78 at this library version). Your code never imports or configures it; consult alchemy's own docs for the engine itself. What matters operationally:
+**The engine underneath is alchemy.** Convergence is executed by
+[alchemy](https://alchemy.run), a third-party infrastructure-as-code engine
+that arrives as an ordinary, exactly-pinned npm dependency of
+`@prisma/composer` (2.0.0-beta.74 at this library version). Your code never
+imports or configures it; consult alchemy's own docs for the engine itself.
+What matters operationally:
 
 Alchemy is resolved from the nearest `node_modules/.bin`, including hoisted
 ancestor directories. Windows resolves `alchemy.exe`, then `alchemy.cmd`,
@@ -364,14 +369,6 @@ that surprise:
    service it calls.
 5. Windows isn't supported yet.
 
-Local Postgres runs on `@prisma/dev`, which `@prisma/composer-prisma-cloud`
-declares as its own dependency (`^0.25.2`) and resolves from its own package.
-Nothing needs adding to the app, and an app's own `@prisma/dev` (for example the
-`^0.20.0` alchemy pulls in, which crashes on any Postgres message over 64 KiB) is
-ignored. If the emulator reports that `@prisma/dev` did not resolve, the install
-is broken: reinstall dependencies rather than adding `@prisma/dev` or `prisma`.
-Cloud deployment and local apps without Postgres never load this runtime.
-
 ## Testing is an environment seam
 
 A test is just another environment: one where you decide what `load()` and
@@ -417,7 +414,7 @@ provision exactly like your own:
 | `cron` from `/cron` | An always-on scheduler (it holds Compute's keep-awake guard) firing your schedule at your runner service; `input` on `cron()` binds the runner's input schema | nothing |
 | `storage` from `/storage` | An S3-backed blob store (own Postgres + minted credentials) | `store` |
 | `streams` from `/streams` | Durable append-only event streams over a `store` | `streams` |
-| `auth` from `/auth` | Signup, login, sessions, and JWT verification (Better Auth in one service, own database). `auth({ signUp: 'closed' })` makes Better Auth refuse self-service sign-up; operator-created accounts go through `admin.createUser({ email, name, password?, emailVerified? })` from a service wired to `admin` (it throws on a duplicate email and sends no mail); a signed-in user deletes their own account with Better Auth's `POST /api/auth/delete-user` through the proxy (password, or a session < 24 h old); operators delete with `admin.removeUser({ userId })`; either way your own rows follow your `auth:User` FK's `onDelete` (`Cascade` deletes them, `Restrict` refuses the deletion) | `api`, `session`, `admin` |
+| `auth` from `/auth` | Signup, login, sessions, and JWT verification (Better Auth in one service, own database) | `api`, `session`, `admin` |
 | `email` from `/email` | Transactional email with a stored outbox (own service and database) | `send`, `outbox` |
 
 `bucket()` (imported alongside `rawPostgres`) is a raw S3-compatible bucket:
@@ -447,10 +444,9 @@ today the blocks above plus your own Modules are the whole set, so verify a
    crashes into a 502 restart loop unless the pool is small and
    reconnect-friendly (`new SQL({ url, max: 1, idleTimeout: 10 })` for Bun)
    and the process logs `uncaughtException`/`unhandledRejection` instead of
-   dying. Under `dev`, add `prepare: false` as well: the local Postgres
-   is one session shared by every connection and it outlives your
-   processes, so a restarted process collides on prepared-statement
-   names (42P05) and crash-loops.
+   dying. Under `dev` watch-restarts against the local emulator, add
+   `prepare: false` as well: restarted processes collide on
+   prepared-statement names in the emulator's shared session.
 4. **Cold starts reset service-to-service connections.** A call into a
    scaled-to-zero service can get `ECONNRESET`; retry it.
 5. **Bind `0.0.0.0`, not loopback.** The platform routes external HTTP to
@@ -472,15 +468,6 @@ today the blocks above plus your own Modules are the whole set, so verify a
    contract columns compiles and deploys, then fails on the first timestamp
    read. Provide the global at the server entry
    (`import 'temporal-polyfill/global'`) or use string column types.
-10. **The auth module's `/api/auth/*` returns `403 MISSING_OR_NULL_ORIGIN`
-    to a Node script.** It is the browser surface: Better Auth origin-checks
-    any request carrying a cookie, an `Origin`/`Referer`, or a `Sec-Fetch-*`
-    header, and Node's built-in `fetch` sends `Sec-Fetch-Mode` on every
-    request (the same `curl` passes). Send an `Origin` equal to the module's
-    `baseUrl`, or, for provisioning, don't use that surface at all: call
-    `admin.createUser` from a service wired to the `admin` port. A deployed
-    stack's rpc ports are reachable only from inside its graph, so the app
-    exposes its own operator route that makes that call.
 
 ## What Composer doesn't do yet
 

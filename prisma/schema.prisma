@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentType {
+  BOM
+  PR
+  PO
+  GR
+  INVOICE
+}
+
+enum DocumentStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum ValidationStatus {
+  VALID
+  FAILED
+  PENDING
+  SKIPPED
+}
+
+model Document {
+  id                String   @id @default(cuid())
+  documentType      DocumentType
+  documentNumber    String   @unique
+  referenceNumber   String?
+  documentDate      DateTime
+  vendor            String?
+  amount            Decimal  @db.Decimal(15, 2)
+  currency          String   @default("IDR")
+  description       String?
+  notes             String?
+  status            DocumentStatus @default(DRAFT)
+  validationStatus  ValidationStatus @default(PENDING)
+  references        DocumentReference[] @relation("SourceDocument")
+  referencedBy      DocumentReference[] @relation("TargetDocument")
+  auditLogs         AuditLog[]
+  syncHistory       SyncHistory[]
+  validationResults ValidationResult[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdBy         String?
+  
+  @@unique([documentType, documentNumber])
+  @@index([documentType])
+  @@index([validationStatus])
+  @@index([createdAt])
+}
+
+model DocumentReference {
+  id                String   @id @default(cuid())
+  sourceDocumentId  String
+  sourceDocument    Document @relation("SourceDocument", fields: [sourceDocumentId], references: [id])
+  targetDocumentId  String
+  targetDocument    Document @relation("TargetDocument", fields: [targetDocumentId], references: [id])
+  referenceDate     DateTime @default(now())
+  itemCount         Int      @default(1)
+  amount            Decimal  @db.Decimal(15, 2)
+  validationStatus  ValidationStatus @default(PENDING)
+  failureReason     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([sourceDocumentId, targetDocumentId])
+  @@index([sourceDocumentId])
+  @@index([targetDocumentId])
+}
+
+model ValidationResult {
+  id                String   @id @default(cuid())
+  documentId        String
+  document          Document @relation(fields: [documentId], references: [id])
+  ruleName          String
+  ruleDescription   String?
+  passed            Boolean
+  message           String?
+  details           String?
+  severity          String   @default("WARNING")
+  createdAt         DateTime @default(now())
+  
+  @@index([documentId])
+  @@index([passed])
+}
+
+model AuditLog {
+  id                String   @id @default(cuid())
+  documentId        String
+  document          Document @relation(fields: [documentId], references: [id])
+  action            String
+  performedBy       String
+  details           String?
+  createdAt         DateTime @default(now())
+  
+  @@index([documentId])
+  @@index([createdAt])
+}
+
+model SyncHistory {
+  id                String   @id @default(cuid())
+  documentId        String?
+  document          Document? @relation(fields: [documentId], references: [id])
+  syncType          String
+  status            String
+  recordsProcessed  Int      @default(0)
+  recordsSuccessful Int      @default(0)
+  recordsFailed     Int      @default(0)
+  errorLog          String?
+  startedAt         DateTime @default(now())
+  completedAt       DateTime?
+  
+  @@index([syncType])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String?
+  name              String?
+  role              String   @default("USER")
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

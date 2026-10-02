@@ -129,12 +129,3 @@ Sistem pelacakan dan validasi referensi dokumen rantai pasok manufaktur end-to-e
 
 ---
 
-## 🚀 Getting Started
-
-### 1. Prasyarat
-* Node.js LTS
-* Package manager (`npm`)
-
-### 2. Instalasi Dependensi
-```bash
-npm install
