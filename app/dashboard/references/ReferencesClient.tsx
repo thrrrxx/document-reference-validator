@@ -139,12 +139,12 @@ export default function ReferencesClient() {
           flowSteps: prev.flowSteps.map((s) =>
             s.status === 'missing'
               ? {
-                  ...s,
-                  status: 'present' as const,
-                  docNumber: customDocNo || `${s.code}-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-                  date: 'Hari ini',
-                  notes: 'Dokumen susulan berhasil diverifikasi & ditautkan',
-                }
+                ...s,
+                status: 'present' as const,
+                docNumber: customDocNo || `${s.code}-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+                date: 'Hari ini',
+                notes: 'Dokumen susulan berhasil diverifikasi & ditautkan',
+              }
               : s
           ),
         };
@@ -233,11 +233,10 @@ export default function ReferencesClient() {
         <button
           type="button"
           onClick={() => handleStatusChange('all')}
-          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${
-            selectedStatus === 'all'
+          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${selectedStatus === 'all'
               ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500/80 shadow-xs ring-1 ring-blue-500/30'
               : 'bg-white dark:bg-[#0F172A] border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -248,7 +247,7 @@ export default function ReferencesClient() {
           <div className="mt-3 flex items-baseline justify-between">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-gray-900 dark:text-white">{counts.all}</span>
-              <span className="text-xs text-gray-500">alur dokumen</span>
+              <span className="text-xs text-gray-500">Alur Dokumen</span>
             </div>
             <span className="text-[11px] px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-medium">
               Lengkap & Tidak Lengkap
@@ -260,11 +259,10 @@ export default function ReferencesClient() {
         <button
           type="button"
           onClick={() => handleStatusChange('missing')}
-          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${
-            selectedStatus === 'missing'
+          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${selectedStatus === 'missing'
               ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-500/80 shadow-xs ring-1 ring-amber-500/30'
               : 'bg-white dark:bg-[#0F172A] border-gray-200/80 dark:border-gray-800 hover:border-amber-200 dark:hover:border-amber-900/50'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
@@ -275,7 +273,7 @@ export default function ReferencesClient() {
           <div className="mt-3 flex items-baseline justify-between">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">{counts.missing}</span>
-              <span className="text-xs text-amber-700 dark:text-amber-300">alur kurang</span>
+              <span className="text-xs text-amber-700 dark:text-amber-300">Alur Kurang</span>
             </div>
             <span className="text-[11px] px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-semibold">
               Perlu Dokumen
@@ -287,11 +285,10 @@ export default function ReferencesClient() {
         <button
           type="button"
           onClick={() => handleStatusChange('complete')}
-          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${
-            selectedStatus === 'complete'
+          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${selectedStatus === 'complete'
               ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500/80 shadow-xs ring-1 ring-emerald-500/30'
               : 'bg-white dark:bg-[#0F172A] border-gray-200/80 dark:border-gray-800 hover:border-emerald-200 dark:hover:border-emerald-900/50'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
@@ -302,7 +299,7 @@ export default function ReferencesClient() {
           <div className="mt-3 flex items-baseline justify-between">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{counts.complete}</span>
-              <span className="text-xs text-emerald-700 dark:text-emerald-300">alur lengkap</span>
+              <span className="text-xs text-emerald-700 dark:text-emerald-300">Alur Lengkap</span>
             </div>
             <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 font-semibold">
               100% Valid
@@ -398,11 +395,10 @@ export default function ReferencesClient() {
                               <ArrowRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
                             )}
                             <div
-                              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono transition ${
-                                step.status === 'present'
+                              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono transition ${step.status === 'present'
                                   ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60'
                                   : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-dashed border-rose-300 dark:border-rose-800 animate-pulse'
-                              }`}
+                                }`}
                               title={
                                 step.status === 'present'
                                   ? `${step.label}: ${step.docNumber} (${step.notes || ''})`
@@ -496,11 +492,10 @@ export default function ReferencesClient() {
                   <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
                     {selectedRef.id}
                   </span>
-                  <span className={`text-[11px] px-2 py-0.5 rounded-lg font-semibold ${
-                    selectedRef.status === 'complete'
+                  <span className={`text-[11px] px-2 py-0.5 rounded-lg font-semibold ${selectedRef.status === 'complete'
                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                       : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                  }`}>
+                    }`}>
                     {selectedRef.status === 'complete' ? 'Alur Lengkap' : 'Alur Dokumen Kurang'}
                   </span>
                 </div>
@@ -543,18 +538,16 @@ export default function ReferencesClient() {
                 {selectedRef.flowSteps.map((step) => (
                   <div
                     key={step.code}
-                    className={`p-3.5 rounded-xl border flex items-start gap-3 transition ${
-                      step.status === 'present'
+                    className={`p-3.5 rounded-xl border flex items-start gap-3 transition ${step.status === 'present'
                         ? 'bg-gray-50/80 dark:bg-gray-800/40 border-gray-200/80 dark:border-gray-800'
                         : 'bg-rose-50/70 dark:bg-rose-950/30 border-dashed border-rose-300 dark:border-rose-900'
-                    }`}
+                      }`}
                   >
                     <div
-                      className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 ${
-                        step.status === 'present'
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 ${step.status === 'present'
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
                           : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
-                      }`}
+                        }`}
                     >
                       {step.step}
                     </div>

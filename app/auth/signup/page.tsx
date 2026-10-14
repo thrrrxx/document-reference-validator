@@ -137,9 +137,9 @@ export default function SignUpPage() {
                     </div>
                 </div>
 
-                <p className="text-black-200 text-sm mt-6">
-                    © 2026 Validex. All rights reserved. Made with{' '}
-                    <span className="text-red-500">❤️</span>by <span className="font-bold">thrrrxx</span>
+                <p className="text-white text-sm mt-6">
+                    © 2026 Validex. All rights reserved. Made with
+                    <span className="text-red-500"> ❤️ </span> by <span className="font-bold">thrrrxx</span>
                 </p>
             </div>
 
