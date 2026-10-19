@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import TurnstileWidget from '@/components/TurnstileWidget';
 
 // Validation Schema
 const loginSchema = z.object({
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string>('');
 
   const {
     register,
@@ -41,11 +43,18 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
 
+    // Validasi token CAPTCHA Cloudflare
+    if (!captchaToken && process.env.NODE_ENV === 'production') {
+      setError('Harap selesaikan verifikasi keamanan (CAPTCHA) terlebih dahulu.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, captchaToken }),
       });
 
       const resData = await response.json();
@@ -229,6 +238,13 @@ export default function LoginPage() {
               </label>
             </div>
 
+            {/* CLOUDFLARE TURNSTILE CAPTCHA */}
+            <TurnstileWidget
+              onSuccess={(token) => setCaptchaToken(token)}
+              onExpire={() => setCaptchaToken('')}
+              onError={() => setCaptchaToken('')}
+              action="login"
+            />
 
             {/* SUBMIT BUTTON */}
             <button

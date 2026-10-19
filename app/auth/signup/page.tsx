@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { Eye, EyeOff, Mail, Lock, User, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import TurnstileWidget from '@/components/TurnstileWidget';
 
 // Validation Schema untuk Sign Up
 const signupSchema = z
@@ -32,6 +33,7 @@ export default function SignUpPage() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [captchaToken, setCaptchaToken] = useState<string>('');
 
     const {
         register,
@@ -53,11 +55,18 @@ export default function SignUpPage() {
         setIsLoading(true);
         setError(null);
 
+        // Validasi token CAPTCHA Cloudflare
+        if (!captchaToken && process.env.NODE_ENV === 'production') {
+            setError('Harap selesaikan verifikasi keamanan (CAPTCHA) terlebih dahulu.');
+            setIsLoading(false);
+            return;
+        }
+
         try {
             const response = await fetch('/api/auth/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
+                body: JSON.stringify({ ...data, captchaToken }),
             });
 
             const resData = await response.json();
@@ -69,7 +78,6 @@ export default function SignUpPage() {
             reset();
             router.push('/auth/login?registered=true');
         } catch (err) {
-            // Fallback jika API belum dibuat: tampilkan feedback atau simulasikan redirect
             setError(err instanceof Error ? err.message : 'An error occurred');
         } finally {
             setIsLoading(false);
@@ -296,6 +304,14 @@ export default function SignUpPage() {
                                 <p className="text-red-600 text-sm mt-1">{errors.termsAccepted.message}</p>
                             )}
                         </div>
+
+                        {/* CLOUDFLARE TURNSTILE CAPTCHA */}
+                        <TurnstileWidget
+                            onSuccess={(token) => setCaptchaToken(token)}
+                            onExpire={() => setCaptchaToken('')}
+                            onError={() => setCaptchaToken('')}
+                            action="signup"
+                        />
 
                         {/* SUBMIT BUTTON */}
                         <button

@@ -57,6 +57,7 @@ model Document {
   @@index([documentType])
   @@index([validationStatus])
   @@index([createdAt])
+  @@map("document")
 }
 
 model DocumentReference {
@@ -76,6 +77,7 @@ model DocumentReference {
   @@unique([sourceDocumentId, targetDocumentId])
   @@index([sourceDocumentId])
   @@index([targetDocumentId])
+  @@map("documentReference")
 }
 
 model ValidationResult {
@@ -92,6 +94,7 @@ model ValidationResult {
   
   @@index([documentId])
   @@index([passed])
+  @@map("validationResult")
 }
 
 model AuditLog {
@@ -105,6 +108,7 @@ model AuditLog {
   
   @@index([documentId])
   @@index([createdAt])
+  @@map("auditLog")
 }
 
 model SyncHistory {
@@ -123,6 +127,7 @@ model SyncHistory {
   @@index([syncType])
   @@index([status])
   @@index([startedAt])
+  @@map("syncHistory")
 }
 
 model User {
@@ -134,4 +139,6 @@ model User {
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@map("user")
 }

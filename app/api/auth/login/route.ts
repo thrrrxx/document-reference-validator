@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { verifyTurnstileToken } from '@/lib/turnstile';
+import { db } from '@/lib/db';
 
 const loginRequestSchema = z.object({
-    email: z.string().email('Invalid email address'),
-    password: z.string().min(1, 'Password is required'),
+    email: z.string().email('Format email tidak valid'),
+    password: z.string().min(1, 'Password wajib diisi'),
     rememberMe: z.boolean().optional(),
+    captchaToken: z.string().optional(),
 });
 
-// Demo account credentials
+// Demo fallback account credentials
 const DEMO_USER = {
     email: 'demo@example.com',
     password: 'password123',
@@ -27,10 +30,58 @@ export async function POST(request: Request) {
             );
         }
 
-        const { email, password, rememberMe } = parsed.data;
+        const { email, password, rememberMe, captchaToken } = parsed.data;
 
-        // Validasi kredensial (saat ini menggunakan akun demo)
-        if (email.toLowerCase() !== DEMO_USER.email.toLowerCase() || password !== DEMO_USER.password) {
+        // Ambil Real IP client dari header Cloudflare atau proxy
+        const clientIp =
+            request.headers.get('cf-connecting-ip') ||
+            request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+            request.headers.get('x-real-ip') ||
+            'unknown';
+
+        // 1. Verifikasi Cloudflare Turnstile CAPTCHA (Proteksi DDoS & Bot)
+        const captchaResult = await verifyTurnstileToken(captchaToken, clientIp);
+        if (!captchaResult.success) {
+            return NextResponse.json(
+                {
+                    message: captchaResult.message || 'Verifikasi keamanan (CAPTCHA) gagal.',
+                    errorCodes: captchaResult.errorCodes,
+                },
+                { status: 403 }
+            );
+        }
+
+        // 2. Autentikasi Pengguna (Database dengan fallback ke akun demo)
+        let authenticatedUser: { email: string; name: string | null; role: string } | null = null;
+
+        try {
+            const dbUser = await db.user.findUnique({
+                where: { email: email.toLowerCase() },
+            });
+
+            if (dbUser && dbUser.active && dbUser.password === password) {
+                authenticatedUser = {
+                    email: dbUser.email,
+                    name: dbUser.name,
+                    role: dbUser.role,
+                };
+            }
+        } catch (dbErr) {
+            console.warn('[Login Route] Database query failed, checking demo user fallback:', dbErr);
+        }
+
+        // Fallback demo user
+        if (!authenticatedUser) {
+            if (email.toLowerCase() === DEMO_USER.email.toLowerCase() && password === DEMO_USER.password) {
+                authenticatedUser = {
+                    email: DEMO_USER.email,
+                    name: DEMO_USER.name,
+                    role: DEMO_USER.role,
+                };
+            }
+        }
+
+        if (!authenticatedUser) {
             return NextResponse.json(
                 { message: 'Email atau password salah' },
                 { status: 401 }
@@ -40,11 +91,7 @@ export async function POST(request: Request) {
         const response = NextResponse.json(
             {
                 message: 'Login berhasil',
-                user: {
-                    email: DEMO_USER.email,
-                    name: DEMO_USER.name,
-                    role: DEMO_USER.role,
-                },
+                user: authenticatedUser,
             },
             { status: 200 }
         );
@@ -53,7 +100,7 @@ export async function POST(request: Request) {
         const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24; // 30 hari vs 1 hari
         response.cookies.set({
             name: 'auth_session',
-            value: JSON.stringify({ email: DEMO_USER.email, loggedInAt: Date.now() }),
+            value: JSON.stringify({ email: authenticatedUser.email, loggedInAt: Date.now() }),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
