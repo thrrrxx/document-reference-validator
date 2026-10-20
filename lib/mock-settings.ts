@@ -25,16 +25,16 @@ export interface ActiveSession {
 }
 
 export const INITIAL_USER_PROFILE: UserProfile = {
-  name: 'Dr. John Doe',
-  email: 'john@company.com',
-  role: 'Lead Research Validator & Data Steward',
-  organization: 'Validex Research Labs',
-  department: 'Academic Integrity & Citations',
-  bio: 'Specializing in deep residual neural network citations, automated registry resolution, and academic integrity verification.',
+  name: '',
+  email: '',
+  role: 'Document Validator & Procurement',
+  organization: 'Validex Workspace',
+  department: 'Procurement & Reference Validation',
+  bio: 'Bertanggung jawab dalam validasi dokumen pengadaan rantai pasok BOM, PR, PO, GRN, PI, dan PP.',
   timezone: 'Asia/Jakarta (GMT+7)',
-  verifiedCount: 1248,
-  accuracyRate: 94.5,
-  memberSince: 'March 2025',
+  verifiedCount: 0,
+  accuracyRate: 100,
+  memberSince: 'Oktober 2026',
 };
 
 

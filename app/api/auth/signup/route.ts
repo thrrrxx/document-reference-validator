@@ -6,7 +6,12 @@ import { db } from '@/lib/db';
 const signupRequestSchema = z.object({
     name: z.string().min(2, 'Nama minimal 2 karakter'),
     email: z.string().email('Format email tidak valid'),
-    password: z.string().min(6, 'Password minimal 6 karakter'),
+    password: z
+        .string()
+        .min(6, 'Password minimal 6 karakter')
+        .regex(/[A-Z]/, 'Password harus mengandung minimal satu huruf besar (A-Z)')
+        .regex(/[0-9]/, 'Password harus mengandung minimal satu angka (0-9)')
+        .regex(/[^A-Za-z0-9]/, 'Password harus mengandung minimal satu simbol/karakter khusus (!@#$...)'),
     termsAccepted: z.boolean().refine((val) => val === true, {
         message: 'Anda harus menyetujui syarat dan ketentuan',
     }),
@@ -81,15 +86,11 @@ export async function POST(request: Request) {
                 },
                 { status: 201 }
             );
-        } catch (dbError) {
-            console.warn('[Signup Route] Database create error, fallback simulated success:', dbError);
-            // Jika DB tidak terkoneksi (misal demo mode), beri feedback sukses
+        } catch (dbError: any) {
+            console.error('[Signup Route] Database create error:', dbError);
             return NextResponse.json(
-                {
-                    message: 'Registrasi berhasil (Simulasi Akun)',
-                    user: { email, name },
-                },
-                { status: 201 }
+                { message: dbError?.message || 'Gagal menyimpan akun ke database' },
+                { status: 500 }
             );
         }
     } catch (error) {

@@ -14,7 +14,12 @@ const signupSchema = z
     .object({
         name: z.string().min(2, 'Full Name must be at least 2 characters'),
         email: z.string().email('Please enter a valid email address'),
-        password: z.string().min(6, 'Password must be at least 6 characters'),
+        password: z
+            .string()
+            .min(6, 'Password minimal 6 karakter')
+            .regex(/[A-Z]/, 'Password harus mengandung huruf besar (A-Z)')
+            .regex(/[0-9]/, 'Password harus mengandung angka (0-9)')
+            .regex(/[^A-Za-z0-9]/, 'Password harus mengandung simbol/karakter khusus (!@#$...)'),
         confirmPassword: z.string().min(1, 'Please confirm your password'),
         termsAccepted: z.boolean().refine((val) => val === true, {
             message: 'You must accept the terms and privacy policy',
@@ -38,6 +43,7 @@ export default function SignUpPage() {
     const {
         register,
         handleSubmit,
+        watch,
         formState: { errors },
         reset,
     } = useForm<SignUpFormData>({
@@ -50,6 +56,43 @@ export default function SignUpPage() {
             termsAccepted: false,
         },
     });
+
+    const passwordValue = watch('password') || '';
+
+    const passwordCriteria = [
+        {
+            id: 'length',
+            label: 'Minimal 6 karakter',
+            met: passwordValue.length >= 6,
+        },
+        {
+            id: 'uppercase',
+            label: 'Huruf besar (A-Z)',
+            met: /[A-Z]/.test(passwordValue),
+        },
+        {
+            id: 'number',
+            label: 'Angka (0-9)',
+            met: /[0-9]/.test(passwordValue),
+        },
+        {
+            id: 'symbol',
+            label: 'Simbol khusus (!@#$...)',
+            met: /[^A-Za-z0-9]/.test(passwordValue),
+        },
+    ];
+
+    const metCount = passwordCriteria.filter((c) => c.met).length;
+
+    const strengthConfig = [
+        { label: 'Belum diisi', color: 'text-gray-400', barColor: 'bg-gray-200' },
+        { label: 'Sangat Lemah', color: 'text-rose-600', barColor: 'bg-rose-500' },
+        { label: 'Cukup', color: 'text-amber-600', barColor: 'bg-amber-500' },
+        { label: 'Kuat', color: 'text-blue-600', barColor: 'bg-blue-500' },
+        { label: 'Sangat Kuat', color: 'text-emerald-600', barColor: 'bg-emerald-500' },
+    ];
+
+    const currentStrength = passwordValue.length === 0 ? strengthConfig[0] : strengthConfig[metCount];
 
     const onSubmit = async (data: SignUpFormData) => {
         setIsLoading(true);
@@ -245,6 +288,57 @@ export default function SignUpPage() {
                                     {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                                 </button>
                             </div>
+
+                            {/* REALTIME PASSWORD CRITERIA & STRENGTH INDICATOR */}
+                            <div className="mt-2.5 p-3 rounded-xl bg-gray-50/90 border border-gray-200/80 space-y-2.5 transition-all duration-200">
+                                {/* Bar & Status */}
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-1.5 flex-1">
+                                        {[1, 2, 3, 4].map((step) => {
+                                            const isFilled = passwordValue.length > 0 && metCount >= step;
+                                            return (
+                                                <div
+                                                    key={step}
+                                                    className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                                                        isFilled ? currentStrength.barColor : 'bg-gray-200'
+                                                    }`}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                    <span className={`text-[11px] font-semibold shrink-0 transition-colors ${currentStrength.color}`}>
+                                        {passwordValue.length === 0 ? 'Kekuatan: -' : currentStrength.label}
+                                    </span>
+                                </div>
+
+                                {/* 4 Criteria Checklist */}
+                                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-0.5">
+                                    {passwordCriteria.map((c) => (
+                                        <div
+                                            key={c.id}
+                                            className={`flex items-center gap-1.5 text-xs transition-colors duration-200 ${
+                                                c.met ? 'text-emerald-700 font-medium' : 'text-gray-400'
+                                            }`}
+                                        >
+                                            <div
+                                                className={`w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 ${
+                                                    c.met
+                                                        ? 'bg-emerald-500 text-white shadow-xs'
+                                                        : 'bg-gray-200 text-gray-400'
+                                                }`}
+                                            >
+                                                {c.met ? (
+                                                    <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                                ) : (
+                                                    <span className="w-1 h-1 rounded-full bg-gray-400" />
+                                                )}
+                                            </div>
+                                            <span className="text-[11px] truncate leading-tight">{c.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             {errors.password && (
                                 <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
                             )}

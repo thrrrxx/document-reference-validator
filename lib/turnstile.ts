@@ -25,6 +25,9 @@ export async function verifyTurnstileToken(
 ): Promise<TurnstileVerifyResult> {
   // Jika token tidak disertakan oleh client
   if (!token || typeof token !== 'string' || token.trim() === '') {
+    if (process.env.NODE_ENV !== 'production') {
+      return { success: true };
+    }
     return {
       success: false,
       message: 'Verifikasi keamanan (CAPTCHA) wajib diselesaikan.',

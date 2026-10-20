@@ -9,21 +9,23 @@ import {
   FileCheck,
   FileWarning,
   Building2,
-  ArrowRightLeft
+  Plus
 } from 'lucide-react';
-import { MOCK_REFERENCES } from '@/lib/mock-references';
+import { getAllFlowsFromDb } from '@/lib/references-service';
 
-export default function DashboardPage() {
-  const totalCount = MOCK_REFERENCES.length;
-  const missingCount = MOCK_REFERENCES.filter((r) => r.status === 'missing').length;
-  const completeCount = MOCK_REFERENCES.filter((r) => r.status === 'complete').length;
+export default async function DashboardPage() {
+  const flows = await getAllFlowsFromDb();
+
+  const totalCount = flows.length;
+  const missingCount = flows.filter((r) => r.status === 'missing').length;
+  const completeCount = flows.filter((r) => r.status === 'complete').length;
 
   const stats = [
     {
       title: 'All Document',
       value: String(totalCount),
       subtitle: 'Alur lengkap & tidak lengkap',
-      change: '100% alur terpantau',
+      change: totalCount > 0 ? '100% alur terpantau' : 'Database siap digunakan',
       changeType: 'positive',
       icon: Layers,
       color: 'blue',
@@ -33,12 +35,12 @@ export default function DashboardPage() {
       title: 'Missing',
       value: String(missingCount),
       subtitle: 'Alur dokumen yang kurang',
-      change: 'Perlu tindakan kelengkapan (e.g. PO tanpa PR)',
-      changeType: 'warning',
+      change: missingCount > 0 ? 'Perlu tindakan kelengkapan (e.g. PO tanpa PR)' : 'Tidak ada dokumen putus',
+      changeType: missingCount > 0 ? 'warning' : 'positive',
       icon: FileWarning,
       color: 'amber',
       href: '/dashboard/references?status=missing',
-      badge: 'Action Needed',
+      badge: missingCount > 0 ? 'Action Needed' : undefined,
     },
     {
       title: 'Complete',
@@ -49,11 +51,11 @@ export default function DashboardPage() {
       icon: FileCheck,
       color: 'emerald',
       href: '/dashboard/references?status=complete',
-      badge: '100% Valid',
+      badge: completeCount > 0 ? '100% Valid' : undefined,
     },
   ];
 
-  const recentFlows = MOCK_REFERENCES.slice(0, 4);
+  const recentFlows = flows.slice(0, 5);
 
   return (
     <div className="space-y-8">
@@ -63,14 +65,17 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
             Dashboard Overview
           </h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Status alur dokumen pengadaan tersinkronisasi langsung dengan database PostgreSQL lokal.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/references"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-xs shadow-blue-200 dark:shadow-none"
           >
-            <Layers className="w-4 h-4" />
-            <span>Lihat Semua Alur Dokumen</span>
+            <Plus className="w-4 h-4" />
+            <span>Kelola & Tambah Alur Dokumen</span>
           </Link>
         </div>
       </div>
@@ -91,12 +96,13 @@ export default function DashboardPage() {
                     {stat.title}
                   </span>
                   <div
-                    className={`p-2.5 rounded-xl ${stat.color === 'blue'
-                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
-                      : stat.color === 'amber'
+                    className={`p-2.5 rounded-xl ${
+                      stat.color === 'blue'
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                        : stat.color === 'amber'
                         ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
                         : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
-                      }`}
+                    }`}
                   >
                     <Icon className="w-5 h-5" />
                   </div>
@@ -140,6 +146,9 @@ export default function DashboardPage() {
               <AlertTriangle className="w-5 h-5 text-amber-200" />
               <h3 className="font-bold text-lg">Peringatan: {missingCount} Alur Dokumen Memerlukan Tindakan</h3>
             </div>
+            <p className="text-xs text-amber-100">
+              Ditemukan alur pengadaan yang belum lengkap (misalnya PO terbit tanpa PR atau belum ada surat jalan penerimaan barang).
+            </p>
           </div>
           <div>
             <Link
@@ -153,91 +162,119 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 4. Recent Flow Validations Table */}
+      {/* 4. Recent Flow Validations Table or Empty State */}
       <div className="bg-white dark:bg-[#0F172A] rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-xs overflow-hidden transition-colors duration-200">
         <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-gray-900 dark:text-white">Validasi Alur Dokumen Terbaru</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Rangkaian alur pengadaan & pemenuhan dokumen terkini</p>
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">Validasi Alur Dokumen Terkini</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Rangkaian alur pengadaan & pemenuhan dokumen dari database PostgreSQL
+            </p>
           </div>
           <Link
             href="/dashboard/references"
             className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 inline-flex items-center gap-1"
           >
-            <span>Lihat Semua Alur</span>
+            <span>Buka Halaman Alur</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-            <thead className="bg-gray-50/75 dark:bg-gray-800/40 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
-              <tr>
-                <th className="px-6 py-3">ID Alur & Paket Pengadaan</th>
-                <th className="px-6 py-3">Vendor Rekanan</th>
-                <th className="px-6 py-3">Alur Dokumen (Pipeline)</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800 font-normal">
-              {recentFlows.map((flow) => (
-                <tr key={flow.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition">
-                  <td className="px-6 py-4 max-w-xs">
-                    <div className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-1">{flow.title}</div>
-                    <div className="text-xs font-mono font-medium text-blue-600 dark:text-blue-400 mt-0.5">{flow.id}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 font-medium">
-                      <Building2 className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                      <span className="truncate max-w-[180px]">{flow.vendor}</span>
-                    </div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">{flow.totalAmount}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      {flow.flowSteps.map((step, idx) => (
-                        <React.Fragment key={step.code}>
-                          {idx > 0 && <span className="text-gray-400 text-xs">→</span>}
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold ${step.status === 'present'
-                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
-                              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-dashed border-rose-300 dark:border-rose-800'
-                              }`}
-                          >
-                            {step.code}
-                            {step.status === 'missing' && ' ✕'}
-                          </span>
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {flow.status === 'complete' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span>Complete</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                        <span>Missing</span>
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <Link
-                      href={`/dashboard/references?status=${flow.status}`}
-                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
-                    >
-                      Detail Alur
-                    </Link>
-                  </td>
+        {totalCount === 0 ? (
+          <div className="p-12 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
+              <Layers className="w-8 h-8" />
+            </div>
+            <div className="max-w-md mx-auto">
+              <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                Database Masih Bersih (0 Alur Dokumen)
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Database PostgreSQL lokal Anda telah berhasil di-reset. Anda dapat menambahkan alur dokumen pertama secara mandiri untuk mempelajari alur kerja sistem.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                href="/dashboard/references"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 transition shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Buat Alur Dokumen Pertama</span>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+              <thead className="bg-gray-50/75 dark:bg-gray-800/40 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
+                <tr>
+                  <th className="px-6 py-3">ID Alur & Paket Pengadaan</th>
+                  <th className="px-6 py-3">Vendor Rekanan</th>
+                  <th className="px-6 py-3">Alur Dokumen (Pipeline)</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3 text-right">Aksi</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800 font-normal">
+                {recentFlows.map((flow) => (
+                  <tr key={flow.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition">
+                    <td className="px-6 py-4 max-w-xs">
+                      <div className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-1">{flow.title}</div>
+                      <div className="text-xs font-mono font-medium text-blue-600 dark:text-blue-400 mt-0.5">{flow.id}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 font-medium">
+                        <Building2 className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                        <span className="truncate max-w-[180px]">{flow.vendor}</span>
+                      </div>
+                      <div className="text-[11px] text-gray-400 mt-0.5">{flow.totalAmount}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        {flow.flowSteps.map((step, idx) => (
+                          <React.Fragment key={step.code}>
+                            {idx > 0 && <span className="text-gray-400 text-xs">→</span>}
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold ${
+                                step.status === 'present'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-dashed border-rose-300 dark:border-rose-800'
+                              }`}
+                            >
+                              {step.code}
+                              {step.status === 'missing' && ' ✕'}
+                            </span>
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {flow.status === 'complete' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Complete</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>Missing</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Link
+                        href={`/dashboard/references?status=${flow.status}`}
+                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+                      >
+                        Detail Alur
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

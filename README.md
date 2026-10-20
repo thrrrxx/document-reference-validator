@@ -116,16 +116,17 @@ Sistem pelacakan dan validasi referensi dokumen rantai pasok manufaktur end-to-e
 - [ ] Mekanisme deteksi status `Failed` (missing reference, amount mismatch, duplicate)
 
 ### Phase 4: Database & Integrasi Data Riil
-- [ ] Setup koneksi database PostgreSQL
-- [ ] Inisialisasi Prisma ORM dan pemodelan skema relasi dokumen
-- [ ] Migrasi skema database (`npx prisma migrate`)
-- [ ] Penggantian mock data ke database query (Server Components / Server Actions)
-- [ ] Modul penarikan/impor data dari Accurate (Sync API atau parser Excel/CSV)
+- [x] Setup koneksi database PostgreSQL
+- [x] Inisialisasi Prisma ORM dan pemodelan skema relasi dokumen (`schema.prisma`)
+- [x] Sinkronisasi skema database (`npx prisma db push` & `npx prisma studio`)
+- [x] Pengisian data awal PostgreSQL (`npm run db:seed`)
+- [x] Modul REST API penarikan & sinkronisasi data Accurate Online (`/api/accurate/*`)
+- [x] Proteksi keamanan DDoS Rate Limiting & Cloudflare Turnstile CAPTCHA
 
 ### Phase 5: Audit Trail & Export
-- [ ] Halaman ringkasan audit log (siapa yang memverifikasi & kapan)
+- [x] Skema dan pencatatan audit log di database (`auditLog` & `syncHistory`)
 - [ ] Fitur export laporan selisih / dokumen gagal validasi (Excel/PDF)
 - [ ] Search & filter tingkat lanjut (pencarian nomor PO/PR, tanggal, vendor)
 
----
+
 

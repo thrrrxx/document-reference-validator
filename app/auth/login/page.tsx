@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import TurnstileWidget from '@/components/TurnstileWidget';
 
 // Validation Schema
@@ -18,8 +18,10 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isRegistered = searchParams.get('registered') === 'true';
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +142,14 @@ export default function LoginPage() {
             <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
             <p className="text-gray-600 mt-2">Sign in to your account to continue</p>
           </div>
+
+          {/* Registration Success Message */}
+          {isRegistered && !error && (
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <p className="text-emerald-700 text-sm">Akun berhasil dibuat! Silakan masuk dengan akun Anda.</p>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -274,16 +284,16 @@ export default function LoginPage() {
               Sign up
             </Link>
           </p>
-
-
-          {/* DEMO CREDENTIALS */}
-          <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-900 font-semibold mb-2">Demo Credentials (Dev Only):</p>
-            <p className="text-xs text-blue-800">Email: demo@example.com</p>
-            <p className="text-xs text-blue-800">Password: password123</p>
-          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -30,34 +30,6 @@ interface NavItem {
   subItems?: SubItem[];
 }
 
-const navigationItems: NavItem[] = [
-  {
-    name: 'Home',
-    path: '/dashboard',
-    icon: Home,
-  },
-  {
-    name: 'References',
-    path: '/dashboard/references',
-    icon: Search,
-    badge: 4,
-    subItems: [
-      { name: 'All Document', path: '/dashboard/references' },
-      { name: 'Missing', path: '/dashboard/references?status=missing', badge: 4 },
-      { name: 'Complete', path: '/dashboard/references?status=complete' },
-    ],
-  },
-  {
-    name: 'Settings',
-    path: '/dashboard/settings',
-    icon: Settings,
-    subItems: [
-      { name: 'Profile', path: '/dashboard/settings/profile' },
-      { name: 'Security', path: '/dashboard/settings/security' },
-    ],
-  },
-];
-
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -67,6 +39,99 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  const [missingCount, setMissingCount] = useState<number>(0);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/references');
+      const json = await res.json();
+      if (json.success && json.stats) {
+        setMissingCount(Number(json.stats.missing) || 0);
+      }
+    } catch {
+      // ignore network errors
+    }
+  }, []);
+
+  const fetchUser = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      const json = await res.json();
+      if (json.success && json.user) {
+        setCurrentUser({
+          name: json.user.name || 'User',
+          email: json.user.email,
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+    fetchUser();
+
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ missing?: number }>;
+      if (customEvent.detail && typeof customEvent.detail.missing === 'number') {
+        setMissingCount(customEvent.detail.missing);
+      } else {
+        fetchStats();
+      }
+    };
+
+    const handleUserUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ name?: string; email?: string }>;
+      if (customEvent.detail) {
+        setCurrentUser((prev) => ({
+          name: customEvent.detail.name || prev?.name || 'User',
+          email: customEvent.detail.email || prev?.email || '',
+        }));
+      }
+    };
+
+    window.addEventListener('references-updated', handleUpdate);
+    window.addEventListener('user-profile-updated', handleUserUpdate);
+    return () => {
+      window.removeEventListener('references-updated', handleUpdate);
+      window.removeEventListener('user-profile-updated', handleUserUpdate);
+    };
+  }, [fetchStats, fetchUser, pathname]);
+
+  const navigationItems: NavItem[] = useMemo(() => [
+    {
+      name: 'Home',
+      path: '/dashboard',
+      icon: Home,
+    },
+    {
+      name: 'References',
+      path: '/dashboard/references',
+      icon: Search,
+      badge: missingCount > 0 ? missingCount : undefined,
+      subItems: [
+        { name: 'All Document', path: '/dashboard/references' },
+        {
+          name: 'Missing',
+          path: '/dashboard/references?status=missing',
+          badge: missingCount > 0 ? missingCount : undefined,
+        },
+        { name: 'Complete', path: '/dashboard/references?status=complete' },
+      ],
+    },
+    {
+      name: 'Settings',
+      path: '/dashboard/settings',
+      icon: Settings,
+      subItems: [
+        { name: 'Profile', path: '/dashboard/settings/profile' },
+        { name: 'Security', path: '/dashboard/settings/security' },
+      ],
+    },
+  ], [missingCount]);
 
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({
     References: true, // Default open References as primary focus
@@ -149,10 +214,23 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
     return pathname.startsWith(item.path);
   };
 
-  const handleSignOut = () => {
-    // Redirect to login
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore
+    }
     router.push('/auth/login');
   };
+
+  const userDisplayName = currentUser?.name || 'Pengguna';
+  const userDisplayEmail = currentUser?.email || '';
+  const userInitials = (function () {
+    if (!userDisplayName) return 'U';
+    const parts = userDisplayName.trim().split(/\s+/);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return userDisplayName.slice(0, 2).toUpperCase();
+  })();
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#0F172A] border-r border-gray-200 dark:border-gray-800 transition-colors duration-200">
@@ -210,7 +288,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
                     <span>{item.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {item.badge && (
+                    {Boolean(item.badge && item.badge > 0) && (
                       <span className="px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full shadow-xs">
                         {item.badge}
                       </span>
@@ -242,7 +320,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
                     />
                     <span>{item.name}</span>
                   </div>
-                  {item.badge && (
+                  {Boolean(item.badge && item.badge > 0) && (
                     <span className="px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full">
                       {item.badge}
                     </span>
@@ -267,7 +345,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
                         }`}
                       >
                         <span className="truncate">{sub.name}</span>
-                        {sub.badge && (
+                        {Boolean(sub.badge && sub.badge > 0) && (
                           <span className="px-1.5 py-0.5 text-[10px] font-bold text-white bg-red-600 rounded-full">
                             {sub.badge}
                           </span>
@@ -311,7 +389,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
           <div className="absolute bottom-full left-3 right-3 mb-2 bg-white dark:bg-[#1E293B] rounded-xl shadow-xl border border-gray-100 dark:border-gray-700/80 py-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
             <div className="px-3.5 py-2 border-b border-gray-100 dark:border-gray-700/80">
               <p className="text-xs font-semibold text-gray-900 dark:text-white">Signed in as</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">john@company.com</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userDisplayEmail || userDisplayName}</p>
             </div>
 
             <Link
@@ -343,7 +421,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={handleSignOut}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition text-left"
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition text-left cursor-pointer"
             >
               <LogOut className="w-4 h-4 text-red-500 dark:text-red-400" />
               <span>Sign Out</span>
@@ -355,17 +433,17 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 transition text-left"
+          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 transition text-left cursor-pointer"
           aria-expanded={isProfileMenuOpen}
           aria-haspopup="true"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center flex-shrink-0 border border-blue-200 dark:border-blue-800">
-              JD
+            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center flex-shrink-0 border border-blue-200 dark:border-blue-800 uppercase">
+              {userInitials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">John Doe</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">john@company.com</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{userDisplayName}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userDisplayEmail}</p>
             </div>
           </div>
           <ChevronDown

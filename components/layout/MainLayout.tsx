@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Menu, Search } from 'lucide-react';
 import Sidebar from './Sidebar';
@@ -12,6 +12,43 @@ interface MainLayoutProps {
 
 export default function MainLayout({ children }: MainLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userInitials, setUserInitials] = useState<string>('U');
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const json = await res.json();
+        if (json.success && json.user?.name) {
+          const parts = json.user.name.trim().split(/\s+/);
+          const initials =
+            parts.length >= 2
+              ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+              : json.user.name.slice(0, 2).toUpperCase();
+          setUserInitials(initials);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    loadUser();
+
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ name?: string }>;
+      if (customEvent.detail?.name) {
+        const parts = customEvent.detail.name.trim().split(/\s+/);
+        const initials =
+          parts.length >= 2
+            ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+            : customEvent.detail.name.slice(0, 2).toUpperCase();
+        setUserInitials(initials);
+      }
+    };
+
+    window.addEventListener('user-profile-updated', handleUpdate);
+    return () => window.removeEventListener('user-profile-updated', handleUpdate);
+  }, []);
 
   return (
     <div className="min-h-screen flex bg-gray-50 dark:bg-[#0B0F17] text-gray-900 dark:text-gray-100 transition-colors duration-200">
@@ -72,8 +109,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
               className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition group"
               title="View profile settings"
             >
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-semibold text-xs flex items-center justify-center shadow-xs group-hover:bg-blue-700 transition">
-                JD
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-semibold text-xs flex items-center justify-center shadow-xs group-hover:bg-blue-700 transition uppercase">
+                {userInitials}
               </div>
             </Link>
           </div>

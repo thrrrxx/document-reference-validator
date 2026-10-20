@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Mail,
@@ -10,15 +10,51 @@ import {
   CheckCircle2,
   Camera,
   ShieldCheck,
-  Award,
   Calendar,
   Save
 } from 'lucide-react';
 import SettingsHeader from './SettingsHeader';
 import { INITIAL_USER_PROFILE, UserProfile } from '@/lib/mock-settings';
 
-export default function ProfileSettingsClient() {
-  const [profile, setProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
+function getInitials(name: string): string {
+  if (!name) return 'U';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+interface ProfileSettingsClientProps {
+  initialUser?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    createdAt?: string;
+  } | null;
+}
+
+export default function ProfileSettingsClient({ initialUser }: ProfileSettingsClientProps) {
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    if (initialUser) {
+      const createdDate = initialUser.createdAt ? new Date(initialUser.createdAt) : new Date();
+      const memberSinceFormatted = createdDate.toLocaleDateString('id-ID', {
+        month: 'long',
+        year: 'numeric',
+      });
+      return {
+        ...INITIAL_USER_PROFILE,
+        name: initialUser.name || 'Pengguna Validex',
+        email: initialUser.email,
+        role: initialUser.role === 'ADMIN' ? 'System Administrator' : 'Document Validator & Procurement',
+        memberSince: memberSinceFormatted,
+      };
+    }
+    return INITIAL_USER_PROFILE;
+  });
+
+  const [isLoadingUser, setIsLoadingUser] = useState(!initialUser);
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -29,14 +65,103 @@ export default function ProfileSettingsClient() {
     }, 3500);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  // 1. Sync jika initialUser dari Server Component berubah
+  useEffect(() => {
+    if (initialUser) {
+      const createdDate = initialUser.createdAt ? new Date(initialUser.createdAt) : new Date();
+      const memberSinceFormatted = createdDate.toLocaleDateString('id-ID', {
+        month: 'long',
+        year: 'numeric',
+      });
+      setProfile((prev) => ({
+        ...prev,
+        name: initialUser.name || 'Pengguna Validex',
+        email: initialUser.email,
+        role: initialUser.role === 'ADMIN' ? 'System Administrator' : 'Document Validator & Procurement',
+        memberSince: memberSinceFormatted,
+      }));
+      setIsLoadingUser(false);
+    }
+  }, [initialUser]);
+
+  // 2. Ambil data pengguna realtime dari PostgreSQL & dengarkan update
+  useEffect(() => {
+    async function loadUserProfile() {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        const json = await res.json();
+        if (json.success && json.user) {
+          const createdDate = json.user.createdAt ? new Date(json.user.createdAt) : new Date();
+          const memberSinceFormatted = createdDate.toLocaleDateString('id-ID', {
+            month: 'long',
+            year: 'numeric',
+          });
+
+          setProfile((prev) => ({
+            ...prev,
+            name: json.user.name || 'Pengguna Validex',
+            email: json.user.email,
+            role: json.user.role === 'ADMIN' ? 'System Administrator' : 'Document Validator & Procurement',
+            organization: 'Validex Workspace',
+            department: 'Procurement & Reference Validation',
+            memberSince: memberSinceFormatted,
+          }));
+        }
+      } catch (err) {
+        console.error('Gagal mengambil data profil dari database:', err);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    }
+
+    loadUserProfile();
+
+    const handleProfileUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ name?: string; email?: string; role?: string }>;
+      if (customEvent.detail) {
+        setProfile((prev) => ({
+          ...prev,
+          name: customEvent.detail.name || prev.name,
+          email: customEvent.detail.email || prev.email,
+          role: customEvent.detail.role || prev.role,
+        }));
+      }
+    };
+
+    window.addEventListener('user-profile-updated', handleProfileUpdate);
+    return () => window.removeEventListener('user-profile-updated', handleProfileUpdate);
+  }, []);
+
+  // 2. Simpan perubahan ke PostgreSQL
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profile.name,
+          email: profile.email,
+          role: profile.role,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        showToast('Profil Berhasil Disimpan');
+        if (typeof window !== 'undefined' && json.user) {
+          window.dispatchEvent(new CustomEvent('user-profile-updated', { detail: json.user }));
+        }
+      } else {
+        showToast(json.message || 'Gagal menyimpan profil');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal terhubung ke database');
+    } finally {
       setIsSaving(false);
-      showToast('Profile information saved successfully!');
-    }, 800);
+    }
   };
 
   return (
@@ -59,8 +184,8 @@ export default function ProfileSettingsClient() {
       <div className="bg-white dark:bg-[#0F172A] p-6 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
           <div className="relative group">
-            <div className="w-20 h-20 rounded-2xl bg-blue-600 text-white text-2xl font-bold flex items-center justify-center shadow-md shadow-blue-200 dark:shadow-none">
-              JD
+            <div className="w-20 h-20 rounded-2xl bg-blue-600 text-white text-2xl font-bold flex items-center justify-center shadow-md shadow-blue-200 dark:shadow-none uppercase">
+              {getInitials(profile.name)}
             </div>
             <button
               type="button"
@@ -95,22 +220,6 @@ export default function ProfileSettingsClient() {
                 {profile.timezone}
               </span>
             </div>
-          </div>
-        </div>
-
-        {/* Metric Badges */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-center">
-          <div className="px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 text-center min-w-[110px]">
-            <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400">
-              {profile.verifiedCount}
-            </span>
-            <span className="text-[11px] text-gray-400 block mt-0.5">Refs Verified</span>
-          </div>
-          <div className="px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 text-center min-w-[110px]">
-            <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
-              {profile.accuracyRate}%
-            </span>
-            <span className="text-[11px] text-gray-400 block mt-0.5">Accuracy Rate</span>
           </div>
         </div>
       </div>

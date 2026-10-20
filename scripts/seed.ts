@@ -26,14 +26,6 @@ async function seed() {
     const users = [
       {
         id: crypto.randomUUID(),
-        email: 'demo@example.com',
-        name: 'Demo User',
-        password: 'password123',
-        role: 'ADMIN',
-        active: true,
-      },
-      {
-        id: crypto.randomUUID(),
         email: 'budi@nexustrace.com',
         name: 'Budi Santoso',
         password: 'password123',

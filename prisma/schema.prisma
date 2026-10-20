@@ -14,7 +14,9 @@ enum DocumentType {
   PO
   GR
   INVOICE
+  PP
 }
+
 
 enum DocumentStatus {
   DRAFT

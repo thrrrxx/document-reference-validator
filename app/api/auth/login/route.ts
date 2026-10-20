@@ -10,14 +10,6 @@ const loginRequestSchema = z.object({
     captchaToken: z.string().optional(),
 });
 
-// Demo fallback account credentials
-const DEMO_USER = {
-    email: 'demo@example.com',
-    password: 'password123',
-    name: 'Demo User',
-    role: 'ADMIN',
-};
-
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -51,7 +43,7 @@ export async function POST(request: Request) {
             );
         }
 
-        // 2. Autentikasi Pengguna (Database dengan fallback ke akun demo)
+        // 2. Autentikasi Pengguna langsung dari Database PostgreSQL
         let authenticatedUser: { email: string; name: string | null; role: string } | null = null;
 
         try {
@@ -67,18 +59,7 @@ export async function POST(request: Request) {
                 };
             }
         } catch (dbErr) {
-            console.warn('[Login Route] Database query failed, checking demo user fallback:', dbErr);
-        }
-
-        // Fallback demo user
-        if (!authenticatedUser) {
-            if (email.toLowerCase() === DEMO_USER.email.toLowerCase() && password === DEMO_USER.password) {
-                authenticatedUser = {
-                    email: DEMO_USER.email,
-                    name: DEMO_USER.name,
-                    role: DEMO_USER.role,
-                };
-            }
+            console.error('[Login Route] Database query failed:', dbErr);
         }
 
         if (!authenticatedUser) {
