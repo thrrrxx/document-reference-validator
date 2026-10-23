@@ -82,9 +82,9 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 3. Rate Limiting untuk Endpoint Autentikasi (/api/auth/*)
+  // 3. Rate Limiting untuk Endpoint Autentikasi Sensitif (/api/auth/login, /api/auth/signup)
   // Maksimal 10 percobaan per 60 detik per IP (Anti Brute-Force & Credential Stuffing)
-  if (pathname.startsWith('/api/auth/')) {
+  if (pathname === '/api/auth/login' || pathname === '/api/auth/signup') {
     const rateLimitKey = `auth:${clientIp}`;
     const { allowed, remaining, retryAfter } = checkRateLimit(rateLimitKey, 10, 60);
 
@@ -92,7 +92,9 @@ export function middleware(request: NextRequest) {
       console.warn(`[DDoS Shield] Rate limit terlampaui untuk ${pathname} oleh IP: ${clientIp}`);
       return new NextResponse(
         JSON.stringify({
+          success: false,
           error: 'Terlalu banyak permintaan (Rate limit terlampaui). Silakan tunggu sebentar sebelum mencoba kembali.',
+          message: 'Terlalu banyak permintaan (Rate limit terlampaui). Silakan tunggu sebentar sebelum mencoba kembali.',
           retryAfter,
         }),
         {
@@ -118,7 +120,9 @@ export function middleware(request: NextRequest) {
       console.warn(`[DDoS Shield] General API Rate limit terlampaui oleh IP: ${clientIp}`);
       return new NextResponse(
         JSON.stringify({
+          success: false,
           error: 'Aktivitas request terlalu tinggi. Akses dibatasi untuk menjaga kestabilan server.',
+          message: 'Aktivitas request terlalu tinggi. Akses dibatasi untuk menjaga kestabilan server.',
           retryAfter,
         }),
         {

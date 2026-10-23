@@ -112,6 +112,19 @@ export async function PATCH(request: Request) {
       );
     }
 
+    // Periksa apakah email baru sudah dipakai oleh akun pengguna lain
+    if (email && email.toLowerCase() !== existingUser.email.toLowerCase()) {
+      const emailConflict = await db.user.findUnique({
+        where: { email: email.toLowerCase() },
+      });
+      if (emailConflict && emailConflict.id !== existingUser.id) {
+        return NextResponse.json(
+          { success: false, message: 'Email sudah digunakan oleh akun lain' },
+          { status: 400 }
+        );
+      }
+    }
+
     const updatedUser = await db.user.update({
       where: { id: existingUser.id },
       data: {
@@ -136,21 +149,25 @@ export async function PATCH(request: Request) {
       user: updatedUser,
     });
 
-    // Update cookie jika email diperbarui
-    if (email && email.toLowerCase() !== existingUser.email.toLowerCase()) {
-      response.cookies.set({
-        name: 'auth_session',
-        value: JSON.stringify({ email: updatedUser.email, loggedInAt: Date.now() }),
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-      });
-    }
+    // Selalu pastikan auth_session tersinkronisasi dengan email pengguna terkini
+    response.cookies.set({
+      name: 'auth_session',
+      value: JSON.stringify({ email: updatedUser.email, loggedInAt: Date.now() }),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
 
     return response;
   } catch (error: any) {
     console.error('[API /api/auth/me PATCH error]:', error);
+    if (error?.code === 'P2002') {
+      return NextResponse.json(
+        { success: false, message: 'Email sudah terdaftar oleh pengguna lain' },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
       { success: false, message: error?.message || 'Gagal memperbarui profil di database' },
       { status: 500 }

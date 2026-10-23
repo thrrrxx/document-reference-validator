@@ -8,6 +8,9 @@ import {
   Briefcase,
   Globe,
   CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Info,
   Camera,
   ShieldCheck,
   Calendar,
@@ -35,6 +38,13 @@ interface ProfileSettingsClientProps {
   } | null;
 }
 
+export type ToastType = 'success' | 'error' | 'info';
+
+export interface ToastState {
+  message: string;
+  type: ToastType;
+}
+
 export default function ProfileSettingsClient({ initialUser }: ProfileSettingsClientProps) {
   const [profile, setProfile] = useState<UserProfile>(() => {
     if (initialUser) {
@@ -47,7 +57,7 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
         ...INITIAL_USER_PROFILE,
         name: initialUser.name || 'Pengguna Validex',
         email: initialUser.email,
-        role: initialUser.role === 'ADMIN' ? 'System Administrator' : 'Document Validator & Procurement',
+        role: initialUser.role === 'ADMIN' ? 'System Administrator' : (initialUser.role || 'Document Validator & Procurement'),
         memberSince: memberSinceFormatted,
       };
     }
@@ -56,13 +66,29 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
 
   const [isLoadingUser, setIsLoadingUser] = useState(!initialUser);
   const [isSaving, setIsSaving] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
+  const showToast = (message: string, type?: ToastType) => {
+    let detectedType: ToastType = type || 'success';
+    if (!type) {
+      const lower = message.toLowerCase();
+      if (
+        lower.includes('gagal') ||
+        lower.includes('error') ||
+        lower.includes('failed') ||
+        lower.includes('tidak') ||
+        lower.includes('terlalu banyak')
+      ) {
+        detectedType = 'error';
+      } else if (lower.includes('dialog') || lower.includes('opened') || lower.includes('info')) {
+        detectedType = 'info';
+      }
+    }
+
+    setToast({ message, type: detectedType });
     setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
+      setToast(null);
+    }, 4000);
   };
 
   // 1. Sync jika initialUser dari Server Component berubah
@@ -73,11 +99,29 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
         month: 'long',
         year: 'numeric',
       });
+
+      let extra = {
+        organization: 'Validex Workspace',
+        department: 'Procurement & Reference Validation',
+        timezone: 'Asia/Jakarta (GMT+7)',
+        bio: 'Bertanggung jawab dalam validasi dokumen pengadaan rantai pasok BOM, PR, PO, GRN, PI, dan PP.',
+      };
+      try {
+        const saved = localStorage.getItem('user_profile_extra');
+        if (saved) extra = { ...extra, ...JSON.parse(saved) };
+      } catch {
+        // ignore
+      }
+
       setProfile((prev) => ({
         ...prev,
         name: initialUser.name || 'Pengguna Validex',
         email: initialUser.email,
-        role: initialUser.role === 'ADMIN' ? 'System Administrator' : 'Document Validator & Procurement',
+        role: initialUser.role === 'ADMIN' ? 'System Administrator' : (initialUser.role || 'Document Validator & Procurement'),
+        organization: extra.organization,
+        department: extra.department,
+        timezone: extra.timezone,
+        bio: extra.bio,
         memberSince: memberSinceFormatted,
       }));
       setIsLoadingUser(false);
@@ -97,13 +141,28 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
             year: 'numeric',
           });
 
+          let extra = {
+            organization: 'Validex Workspace',
+            department: 'Procurement & Reference Validation',
+            timezone: 'Asia/Jakarta (GMT+7)',
+            bio: 'Bertanggung jawab dalam validasi dokumen pengadaan rantai pasok BOM, PR, PO, GRN, PI, dan PP.',
+          };
+          try {
+            const saved = localStorage.getItem('user_profile_extra');
+            if (saved) extra = { ...extra, ...JSON.parse(saved) };
+          } catch {
+            // ignore
+          }
+
           setProfile((prev) => ({
             ...prev,
             name: json.user.name || 'Pengguna Validex',
             email: json.user.email,
-            role: json.user.role === 'ADMIN' ? 'System Administrator' : 'Document Validator & Procurement',
-            organization: 'Validex Workspace',
-            department: 'Procurement & Reference Validation',
+            role: json.user.role === 'ADMIN' ? 'System Administrator' : (json.user.role || 'Document Validator & Procurement'),
+            organization: extra.organization,
+            department: extra.department,
+            timezone: extra.timezone,
+            bio: extra.bio,
             memberSince: memberSinceFormatted,
           }));
         }
@@ -132,7 +191,7 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
     return () => window.removeEventListener('user-profile-updated', handleProfileUpdate);
   }, []);
 
-  // 2. Simpan perubahan ke PostgreSQL
+  // 3. Simpan perubahan ke PostgreSQL
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -148,17 +207,33 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
         }),
       });
 
-      const json = await res.json();
-      if (json.success) {
-        showToast('Profil Berhasil Disimpan');
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok && json.success) {
+        try {
+          localStorage.setItem(
+            'user_profile_extra',
+            JSON.stringify({
+              organization: profile.organization,
+              department: profile.department,
+              timezone: profile.timezone,
+              bio: profile.bio,
+            })
+          );
+        } catch {
+          // ignore
+        }
+
+        showToast('Profil Berhasil Disimpan', 'success');
         if (typeof window !== 'undefined' && json.user) {
           window.dispatchEvent(new CustomEvent('user-profile-updated', { detail: json.user }));
         }
       } else {
-        showToast(json.message || 'Gagal menyimpan profil');
+        const errorMsg = json.message || json.error || 'Gagal menyimpan profil';
+        showToast(errorMsg, 'error');
       }
     } catch (err: any) {
-      showToast(err?.message || 'Gagal terhubung ke database');
+      showToast(err?.message || 'Gagal terhubung ke database', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -167,10 +242,24 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-xl border border-gray-700 dark:border-gray-200 animate-in fade-in slide-in-from-bottom-4 text-sm font-medium">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 dark:text-emerald-600" />
-          <span>{toastMessage}</span>
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border animate-in fade-in slide-in-from-bottom-4 text-sm font-medium transition-all ${
+            toast.type === 'error'
+              ? 'bg-gray-900 text-white dark:bg-[#181115] border-rose-500/50 shadow-rose-950/20'
+              : toast.type === 'info'
+              ? 'bg-gray-900 text-white dark:bg-[#101726] border-blue-500/50 shadow-blue-950/20'
+              : 'bg-gray-900 text-white dark:bg-[#0c1a14] border-emerald-500/40 dark:border-emerald-500/40 shadow-emerald-950/20'
+          }`}
+        >
+          {toast.type === 'error' ? (
+            <XCircle className="w-5 h-5 text-rose-500 dark:text-rose-400 shrink-0" />
+          ) : toast.type === 'info' ? (
+            <Info className="w-5 h-5 text-blue-400 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 dark:text-emerald-500 shrink-0" />
+          )}
+          <span>{toast.message}</span>
         </div>
       )}
 

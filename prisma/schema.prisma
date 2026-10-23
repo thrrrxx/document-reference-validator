@@ -133,14 +133,37 @@ model SyncHistory {
 }
 
 model User {
-  id                String   @id @default(cuid())
-  email             String   @unique
+  id                String        @id @default(cuid())
+  email             String        @unique
   password          String?
   name              String?
-  role              String   @default("USER")
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  role              String        @default("USER")
+  active            Boolean       @default(true)
+  twoFactorEnabled  Boolean       @default(true)
+  twoFactorSecret   String?
+  backupCodes       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  sessions          UserSession[]
 
   @@map("user")
+}
+
+model UserSession {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionToken String   @unique
+  device       String
+  browser      String
+  os           String
+  ipAddress    String
+  location     String
+  lastActive   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sessionToken])
+  @@map("userSession")
 }

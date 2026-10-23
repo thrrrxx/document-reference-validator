@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         }
 
         // 2. Autentikasi Pengguna langsung dari Database PostgreSQL
-        let authenticatedUser: { email: string; name: string | null; role: string } | null = null;
+        let authenticatedUser: { id: string; email: string; name: string | null; role: string } | null = null;
 
         try {
             const dbUser = await db.user.findUnique({
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
 
             if (dbUser && dbUser.active && dbUser.password === password) {
                 authenticatedUser = {
+                    id: dbUser.id,
                     email: dbUser.email,
                     name: dbUser.name,
                     role: dbUser.role,
@@ -77,11 +78,37 @@ export async function POST(request: Request) {
             { status: 200 }
         );
 
-        // Set session cookie sederhana (HTTP-only)
+        // Catat sesi login perangkat ke database
+        let userSession = null;
+        try {
+            const { parseClientInfo } = await import('@/lib/session-detector');
+            const crypto = await import('crypto');
+            const clientInfo = parseClientInfo(request);
+            userSession = await db.userSession.create({
+                data: {
+                    userId: authenticatedUser.id,
+                    sessionToken: crypto.randomUUID(),
+                    device: clientInfo.device,
+                    browser: clientInfo.browser,
+                    os: clientInfo.os,
+                    ipAddress: clientInfo.ipAddress,
+                    location: clientInfo.location,
+                    lastActive: new Date(),
+                },
+            });
+        } catch (sessionErr) {
+            console.warn('Gagal mencatat sesi perangkat ke database:', sessionErr);
+        }
+
+        // Set session cookie (HTTP-only)
         const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24; // 30 hari vs 1 hari
         response.cookies.set({
             name: 'auth_session',
-            value: JSON.stringify({ email: authenticatedUser.email, loggedInAt: Date.now() }),
+            value: JSON.stringify({
+                email: authenticatedUser.email,
+                sessionId: userSession?.id,
+                loggedInAt: Date.now(),
+            }),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
