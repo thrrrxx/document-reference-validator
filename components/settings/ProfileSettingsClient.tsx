@@ -17,6 +17,7 @@ import {
   Save
 } from 'lucide-react';
 import SettingsHeader from './SettingsHeader';
+import AvatarUploadModal from './AvatarUploadModal';
 import { INITIAL_USER_PROFILE, UserProfile } from '@/lib/mock-settings';
 
 function getInitials(name: string): string {
@@ -34,9 +35,11 @@ interface ProfileSettingsClientProps {
     name: string;
     email: string;
     role: string;
+    image?: string | null;
     createdAt?: string;
   } | null;
 }
+
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -58,6 +61,8 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
         name: initialUser.name || 'Pengguna Validex',
         email: initialUser.email,
         role: initialUser.role === 'ADMIN' ? 'System Administrator' : (initialUser.role || 'Document Validator & Procurement'),
+        avatarUrl: initialUser.image || null,
+        image: initialUser.image || null,
         memberSince: memberSinceFormatted,
       };
     }
@@ -66,6 +71,7 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
 
   const [isLoadingUser, setIsLoadingUser] = useState(!initialUser);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const showToast = (message: string, type?: ToastType) => {
@@ -118,6 +124,8 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
         name: initialUser.name || 'Pengguna Validex',
         email: initialUser.email,
         role: initialUser.role === 'ADMIN' ? 'System Administrator' : (initialUser.role || 'Document Validator & Procurement'),
+        avatarUrl: initialUser.image !== undefined ? initialUser.image : prev.avatarUrl,
+        image: initialUser.image !== undefined ? initialUser.image : prev.image,
         organization: extra.organization,
         department: extra.department,
         timezone: extra.timezone,
@@ -159,6 +167,8 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
             name: json.user.name || 'Pengguna Validex',
             email: json.user.email,
             role: json.user.role === 'ADMIN' ? 'System Administrator' : (json.user.role || 'Document Validator & Procurement'),
+            avatarUrl: json.user.image || null,
+            image: json.user.image || null,
             organization: extra.organization,
             department: extra.department,
             timezone: extra.timezone,
@@ -176,13 +186,15 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
     loadUserProfile();
 
     const handleProfileUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<{ name?: string; email?: string; role?: string }>;
+      const customEvent = e as CustomEvent<{ name?: string; email?: string; role?: string; image?: string | null }>;
       if (customEvent.detail) {
         setProfile((prev) => ({
           ...prev,
           name: customEvent.detail.name || prev.name,
           email: customEvent.detail.email || prev.email,
           role: customEvent.detail.role || prev.role,
+          avatarUrl: customEvent.detail.image !== undefined ? customEvent.detail.image : prev.avatarUrl,
+          image: customEvent.detail.image !== undefined ? customEvent.detail.image : prev.image,
         }));
       }
     };
@@ -191,7 +203,52 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
     return () => window.removeEventListener('user-profile-updated', handleProfileUpdate);
   }, []);
 
-  // 3. Simpan perubahan ke PostgreSQL
+  // 3. Simpan perubahan foto profil ke PostgreSQL
+  const handleSaveAvatar = async (newImage: string | null) => {
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: newImage,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok && json.success) {
+        setProfile((prev) => ({
+          ...prev,
+          avatarUrl: newImage,
+          image: newImage,
+        }));
+
+        showToast(
+          newImage ? 'Foto profil berhasil diperbarui!' : 'Foto profil berhasil dihapus.',
+          'success'
+        );
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('user-profile-updated', {
+              detail: {
+                ...json.user,
+                image: newImage,
+              },
+            })
+          );
+        }
+      } else {
+        const errorMsg = json.message || json.error || 'Gagal menyimpan foto profil';
+        throw new Error(errorMsg);
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal menyimpan foto profil', 'error');
+      throw err;
+    }
+  };
+
+  // 4. Simpan perubahan field formulir ke PostgreSQL
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -239,6 +296,7 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
     }
   };
 
+
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
@@ -273,18 +331,36 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
       <div className="bg-white dark:bg-[#0F172A] p-6 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
           <div className="relative group">
-            <div className="w-20 h-20 rounded-2xl bg-blue-600 text-white text-2xl font-bold flex items-center justify-center shadow-md shadow-blue-200 dark:shadow-none uppercase">
-              {getInitials(profile.name)}
+            <div
+              onClick={() => setIsAvatarModalOpen(true)}
+              className="w-20 h-20 rounded-2xl bg-blue-600 text-white text-2xl font-bold flex items-center justify-center shadow-md shadow-blue-200 dark:shadow-none uppercase overflow-hidden cursor-pointer relative transition-transform hover:scale-102"
+              title="Klik untuk mengubah foto profil"
+            >
+              {profile.avatarUrl || profile.image ? (
+                <img
+                  src={profile.avatarUrl || profile.image || ''}
+                  alt={profile.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                getInitials(profile.name)
+              )}
+              {/* Subtle hover camera overlay */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                <Camera className="w-5 h-5 text-white drop-shadow-md" />
+                <span className="text-[10px] text-white font-medium drop-shadow-md">Ubah</span>
+              </div>
             </div>
             <button
               type="button"
-              onClick={() => showToast('Avatar upload dialog opened.')}
-              className="absolute -bottom-2 -right-2 p-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 shadow-xs hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-              title="Change avatar"
+              onClick={() => setIsAvatarModalOpen(true)}
+              className="absolute -bottom-2 -right-2 p-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 shadow-xs hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
+              title="Ubah foto profil"
             >
               <Camera className="w-3.5 h-3.5" />
             </button>
           </div>
+
 
           <div>
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -453,6 +529,16 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
           </button>
         </div>
       </form>
+      
+      {/* 4. Avatar Upload Modal */}
+      <AvatarUploadModal
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        currentImage={profile.avatarUrl || profile.image}
+        userName={profile.name}
+        onSave={handleSaveAvatar}
+      />
     </div>
   );
 }
+

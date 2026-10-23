@@ -137,6 +137,7 @@ model User {
   email             String        @unique
   password          String?
   name              String?
+  image             String?       @db.Text
   role              String        @default("USER")
   active            Boolean       @default(true)
   twoFactorEnabled  Boolean       @default(true)

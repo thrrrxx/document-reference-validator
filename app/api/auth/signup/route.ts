@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 import { db } from '@/lib/db';
+import { hashPassword } from '@/lib/crypto';
 
 const signupRequestSchema = z.object({
     name: z.string().min(2, 'Nama minimal 2 karakter'),
@@ -64,16 +65,17 @@ export async function POST(request: Request) {
                 );
             }
 
-            // Buat pengguna baru
+            // Buat pengguna baru dengan password terenkripsi SHA-256
             const newUser = await db.user.create({
                 data: {
                     name,
                     email: email.toLowerCase(),
-                    password, // Untuk produksi, selalu gunakan hash seperti bcrypt/argon2
+                    password: hashPassword(password),
                     role: 'USER',
                     active: true,
                 },
             });
+
 
             return NextResponse.json(
                 {

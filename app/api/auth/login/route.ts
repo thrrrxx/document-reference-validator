@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 import { db } from '@/lib/db';
+import { verifyPassword, hashPassword } from '@/lib/crypto';
 
 const loginRequestSchema = z.object({
     email: z.string().email('Format email tidak valid'),
@@ -51,14 +52,23 @@ export async function POST(request: Request) {
                 where: { email: email.toLowerCase() },
             });
 
-            if (dbUser && dbUser.active && dbUser.password === password) {
+            if (dbUser && dbUser.active && verifyPassword(password, dbUser.password)) {
                 authenticatedUser = {
                     id: dbUser.id,
                     email: dbUser.email,
                     name: dbUser.name,
                     role: dbUser.role,
                 };
+
+                // Jika password di database masih plain text lama, otomatis migrasi ke hash SHA-256
+                if (dbUser.password === password) {
+                    db.user.update({
+                        where: { id: dbUser.id },
+                        data: { password: hashPassword(password) },
+                    }).catch((err) => console.error('[Login Route] Auto-upgrade password hash failed:', err));
+                }
             }
+
         } catch (dbErr) {
             console.error('[Login Route] Database query failed:', dbErr);
         }

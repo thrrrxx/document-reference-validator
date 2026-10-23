@@ -10,7 +10,7 @@ export async function GET() {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('auth_session');
 
-    let user = null;
+    let user: any = null;
 
     if (sessionCookie?.value) {
       try {
@@ -57,10 +57,25 @@ export async function GET() {
       );
     }
 
+    // Ambil data image langsung dari PostgreSQL agar kebal dari cache model DMMF Turbopack
+    let userImage: string | null = null;
+    try {
+      const imgRes = await db.$queryRawUnsafe<{ image: string | null }[]>(
+        'SELECT "image" FROM "user" WHERE "id" = $1 LIMIT 1',
+        user.id
+      );
+      userImage = imgRes?.[0]?.image || null;
+    } catch {
+      // fallback jika kolom belum terbaca
+    }
+
     return NextResponse.json(
       {
         success: true,
-        user,
+        user: {
+          ...user,
+          image: userImage,
+        },
       },
       {
         headers: {
@@ -82,7 +97,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, role } = body;
+    const { name, email, role, image } = body;
 
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('auth_session');
@@ -125,6 +140,7 @@ export async function PATCH(request: Request) {
       }
     }
 
+    // Update field standard di Prisma model User (tidak mengirim 'image' ke db.user.update agar tidak bentrok dengan DMMF in-memory dev server)
     const updatedUser = await db.user.update({
       where: { id: existingUser.id },
       data: {
@@ -143,10 +159,39 @@ export async function PATCH(request: Request) {
       },
     });
 
+    // Update kolom 'image' secara langsung ke PostgreSQL
+    let finalImage: string | null = null;
+    if (image !== undefined) {
+      try {
+        await db.$executeRawUnsafe(
+          'UPDATE "user" SET "image" = $1, "updatedAt" = NOW() WHERE "id" = $2',
+          image,
+          existingUser.id
+        );
+        finalImage = image;
+      } catch (sqlErr) {
+        console.error('Gagal memperbarui kolom image via direct SQL:', sqlErr);
+        finalImage = image;
+      }
+    } else {
+      try {
+        const imgRes = await db.$queryRawUnsafe<{ image: string | null }[]>(
+          'SELECT "image" FROM "user" WHERE "id" = $1 LIMIT 1',
+          existingUser.id
+        );
+        finalImage = imgRes?.[0]?.image || null;
+      } catch {
+        finalImage = null;
+      }
+    }
+
     const response = NextResponse.json({
       success: true,
       message: 'Profil Berhasil Disimpan',
-      user: updatedUser,
+      user: {
+        ...updatedUser,
+        image: finalImage,
+      },
     });
 
     // Selalu pastikan auth_session tersinkronisasi dengan email pengguna terkini

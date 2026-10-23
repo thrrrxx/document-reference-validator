@@ -6,10 +6,12 @@ export interface UserProfile {
   department: string;
   bio: string;
   timezone: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
+  image?: string | null;
   verifiedCount: number;
   accuracyRate: number;
   memberSince: string;
+
 }
 
 

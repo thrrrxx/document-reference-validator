@@ -51,12 +51,14 @@ async function seed() {
     ];
 
     for (const u of users) {
+      const hashedPassword = crypto.createHash('sha256').update(u.password).digest('hex');
       await client.query(
         `INSERT INTO "user" (id, email, name, password, role, active, "createdAt", "updatedAt")
          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-        [u.id, u.email, u.name, u.password, u.role, u.active]
+        [u.id, u.email, u.name, hashedPassword, u.role, u.active]
       );
     }
+
 
     // 3. Define Document Flows & Documents
     console.log('Seeding documents and references...');

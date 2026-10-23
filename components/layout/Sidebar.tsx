@@ -41,7 +41,11 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
   const router = useRouter();
 
   const [missingCount, setMissingCount] = useState<number>(0);
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    name: string;
+    email: string;
+    image?: string | null;
+  } | null>(null);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -63,6 +67,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
         setCurrentUser({
           name: json.user.name || 'User',
           email: json.user.email,
+          image: json.user.image || null,
         });
       }
     } catch {
@@ -84,14 +89,16 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
     };
 
     const handleUserUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<{ name?: string; email?: string }>;
+      const customEvent = e as CustomEvent<{ name?: string; email?: string; image?: string | null }>;
       if (customEvent.detail) {
         setCurrentUser((prev) => ({
           name: customEvent.detail.name || prev?.name || 'User',
           email: customEvent.detail.email || prev?.email || '',
+          image: customEvent.detail.image !== undefined ? customEvent.detail.image : prev?.image || null,
         }));
       }
     };
+
 
     window.addEventListener('references-updated', handleUpdate);
     window.addEventListener('user-profile-updated', handleUserUpdate);
@@ -438,9 +445,18 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
           aria-haspopup="true"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center flex-shrink-0 border border-blue-200 dark:border-blue-800 uppercase">
-              {userInitials}
+            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center flex-shrink-0 border border-blue-200 dark:border-blue-800 uppercase overflow-hidden">
+              {currentUser?.image ? (
+                <img
+                  src={currentUser.image}
+                  alt={userDisplayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                userInitials
+              )}
             </div>
+
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{userDisplayName}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userDisplayEmail}</p>

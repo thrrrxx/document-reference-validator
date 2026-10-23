@@ -24,16 +24,31 @@ async function getDbUser() {
         // ignore
       }
     }
+    let user = null;
     if (email) {
-      const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
-      if (user) return user;
+      user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
     }
-    return await db.user.findFirst({ orderBy: { createdAt: 'desc' } });
+    if (!user) {
+      user = await db.user.findFirst({ orderBy: { createdAt: 'desc' } });
+    }
+    if (user) {
+      try {
+        const rows = await db.$queryRawUnsafe<{ image: string | null }[]>(
+          'SELECT "image" FROM "user" WHERE "id" = $1 LIMIT 1',
+          user.id
+        );
+        return { ...user, image: rows?.[0]?.image || null };
+      } catch {
+        return { ...user, image: null };
+      }
+    }
+    return null;
   } catch (err) {
     console.error('[ProfileSettingsPage] Failed to load user:', err);
     return null;
   }
 }
+
 
 export default async function ProfileSettingsPage() {
   const user = await getDbUser();
@@ -54,9 +69,11 @@ export default async function ProfileSettingsPage() {
                 name: user.name || '',
                 email: user.email,
                 role: user.role,
+                image: (user as any).image || null,
                 createdAt: user.createdAt.toISOString(),
               }
             : null
+
         }
       />
     </Suspense>

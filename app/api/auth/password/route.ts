@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
+import { verifyPassword, hashPassword } from '@/lib/crypto';
 
 export async function POST(request: Request) {
   try {
@@ -49,19 +50,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // Cek password saat ini
-    if (user.password && user.password !== currentPassword) {
+    // Cek password saat ini (mendukung hash SHA-256 dan plain text lama)
+    if (user.password && !verifyPassword(currentPassword, user.password)) {
       return NextResponse.json(
         { success: false, message: 'Password saat ini tidak sesuai' },
         { status: 400 }
       );
     }
 
-    // Perbarui password di database
+    // Perbarui password di database dengan hash SHA-256
     await db.user.update({
       where: { id: user.id },
-      data: { password: newPassword },
+      data: { password: hashPassword(newPassword) },
     });
+
 
     return NextResponse.json({
       success: true,
