@@ -1,6 +1,45 @@
+# 📑 Document Reference Validator (NexusTrace)
 
+Sistem pelacakan dan validasi referensi dokumen rantai pasok manufaktur end-to-end (BOM, Purchase Request, Purchase Order, Goods Receipt, hingga Invoice). Memastikan integritas alur dokumen, kesesuaian nilai transaksi, serta rekonsiliasi data Accurate.
 
-## Setup
+---
+
+## 🐳 Menjalankan di Device Lain Menggunakan Docker (Rekomendasi)
+
+Agar aplikasi dapat dijalankan di device, komputer, atau server lain tanpa perlu menginstal Node.js dan PostgreSQL secara manual:
+
+### 1. Prasyarat
+- Pastikan [Docker Desktop](https://www.docker.com/products/docker-desktop/) sudah terpasang dan aktif di device tersebut.
+
+### 2. Jalankan Kontainer
+Cukup clone/copy repository ini ke device tujuan, lalu buka terminal dan jalankan:
+
+```bash
+docker compose up -d --build
+```
+
+Perintah di atas akan otomatis:
+1. Menjalankan database **PostgreSQL** di background (`doc-validator-db`).
+2. Menunggu database siap, lalu otomatis mengeksekusi `prisma db push` (membuat seluruh tabel database).
+3. Melakukan inisialisasi **mock data & user awal** (`scripts/seed.ts`).
+4. Membangun dan menjalankan server **Next.js** di `http://localhost:3000`.
+
+### 3. Akun Login Default
+Setelah kontainer aktif, buka `http://localhost:3000/auth/login` di browser:
+- **Email**: `budi@nexustrace.com`
+- **Password**: `password123`
+*(Tersedia juga `ahmad@nexustrace.com` dan `dewi@nexustrace.com`)*
+
+### 4. Perintah Docker Lainnya
+- **Melihat log aplikasi**: `docker compose logs -f app`
+- **Menghentikan kontainer**: `docker compose down`
+- **Mereset database & container**: `docker compose down -v` (menghapus volume data)
+
+---
+
+## 💻 Menjalankan Secara Lokal (Tanpa Docker)
+
+### Setup
 
 Make sure to install dependencies:
 
@@ -69,10 +108,6 @@ yarn preview
 # bun
 bun run preview
 ```
-
-# 📑 Document Reference Validator (NexusTrace)
-
-Sistem pelacakan dan validasi referensi dokumen rantai pasok manufaktur end-to-end (BOM, Purchase Request, Purchase Order, Goods Receipt, hingga Invoice). Memastikan integritas alur dokumen, kesesuaian nilai transaksi, serta rekonsiliasi data Accurate.
 
 ---
 

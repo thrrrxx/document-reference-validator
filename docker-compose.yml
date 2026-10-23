@@ -1,0 +1,52 @@
+services:
+  # ====================================================
+  # Database Service (PostgreSQL)
+  # ====================================================
+  db:
+    image: postgres:16-alpine
+    container_name: doc-validator-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-document_reference_validator}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-document_reference_validator}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ====================================================
+  # Web Application Service (Next.js + Prisma)
+  # ====================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: doc-validator-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-document_reference_validator}?schema=public
+      NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY:-1x00000000000000000000AA}
+      CLOUDFLARE_TURNSTILE_SECRET_KEY: ${CLOUDFLARE_TURNSTILE_SECRET_KEY:-1x0000000000000000000000000000000AA}
+      ACCURATE_ACCESS_TOKEN: ${ACCURATE_ACCESS_TOKEN:-}
+      ACCURATE_DB_ID: ${ACCURATE_DB_ID:-}
+      ACCURATE_API_HOST: ${ACCURATE_API_HOST:-https://public.accurate.id}
+      # Set ke 'true' untuk otomatis mengisi mock user & data saat database baru pertama kali dibuat
+      SEED_ON_START: ${SEED_ON_START:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    name: doc-validator-postgres-data
