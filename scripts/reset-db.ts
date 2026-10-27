@@ -15,7 +15,8 @@ async function resetDatabase() {
     await client.query('DELETE FROM "validationResult";');
     await client.query('DELETE FROM "auditLog";');
     await client.query('DELETE FROM "syncHistory";');
-    await client.query('DELETE FROM "documentReference";');
+    await client.query('DELETE FROM "documentItem";');
+    await client.query('DELETE FROM "documentRelation";');
     await client.query('DELETE FROM "document";');
     await client.query('DELETE FROM "user";');
 
@@ -25,13 +26,13 @@ async function resetDatabase() {
     const counts = await client.query(`
       SELECT 
         (SELECT count(*) FROM "document") AS doc_count,
-        (SELECT count(*) FROM "documentReference") AS ref_count,
+        (SELECT count(*) FROM "documentRelation") AS rel_count,
         (SELECT count(*) FROM "user") AS user_count
     `);
     console.log('Verifikasi jumlah baris saat ini:', counts.rows[0]);
 
     await client.end();
-  } catch (err: any) {
+  } catch (err: unknown) {
     await client.query('ROLLBACK');
     console.error('❌ Gagal mereset database:', err);
     process.exit(1);

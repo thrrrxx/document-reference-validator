@@ -1,13 +1,14 @@
 import { db } from '@/lib/db';
 import { DocumentType, DocumentStatus, ValidationStatus } from '@prisma/client';
 import { DocumentFlowCode, DocumentFlowStep, ReferenceItem } from '@/lib/mock-references';
+import { validateAndSaveRelationInDb } from '@/lib/validators/p2p-validator';
 
 export const PIPELINE_STEPS: { code: DocumentFlowCode; label: string; docType: DocumentType }[] = [
   { code: 'BOM', label: 'Bill of Materials', docType: DocumentType.BOM },
   { code: 'PR', label: 'Purchase Requisition', docType: DocumentType.PR },
   { code: 'PO', label: 'Purchase Order', docType: DocumentType.PO },
   { code: 'GRN', label: 'Goods Received Note', docType: DocumentType.GR },
-  { code: 'PI', label: 'Purchase Invoice', docType: DocumentType.INVOICE },
+  { code: 'PI', label: 'Purchase Invoice', docType: DocumentType.PI },
   { code: 'PP', label: 'Payment Proof', docType: DocumentType.PP },
 ];
 
@@ -26,9 +27,14 @@ export async function getAllFlowsFromDb(): Promise<ReferenceItem[]> {
   const documents = await db.document.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
-      references: true,
-      referencedBy: true,
+      references: {
+        include: { targetDocument: true },
+      },
+      referencedBy: {
+        include: { sourceDocument: true },
+      },
       auditLogs: { take: 1, orderBy: { createdAt: 'desc' } },
+      validationResults: { orderBy: { createdAt: 'desc' } },
     },
   });
 
@@ -64,7 +70,9 @@ export async function getAllFlowsFromDb(): Promise<ReferenceItem[]> {
         if (stepMeta.code === 'PR') return d.documentType === DocumentType.PR;
         if (stepMeta.code === 'PO') return d.documentType === DocumentType.PO;
         if (stepMeta.code === 'GRN') return d.documentType === DocumentType.GR;
-        if (stepMeta.code === 'PI') return d.documentType === DocumentType.INVOICE;
+        if (stepMeta.code === 'PI') {
+          return d.documentType === DocumentType.PI || d.documentType === DocumentType.INVOICE;
+        }
         if (stepMeta.code === 'PP') return d.documentType === DocumentType.PP;
         return false;
       });
@@ -185,16 +193,14 @@ export async function createFlowInDb(data: {
     }
   }
 
-  // Buat relasi berurutan di documentReference jika ada >= 2 dokumen
+  // Buat relasi berurutan di documentRelation jika ada >= 2 dokumen dan jalankan validator transisi
   for (let i = 0; i < createdDocIds.length - 1; i++) {
     try {
-      await db.documentReference.create({
-        data: {
-          sourceDocumentId: createdDocIds[i],
-          targetDocumentId: createdDocIds[i + 1],
-          amount: data.totalAmount,
-          validationStatus: ValidationStatus.VALID,
-        },
+      await validateAndSaveRelationInDb({
+        sourceDocumentId: createdDocIds[i],
+        targetDocumentId: createdDocIds[i + 1],
+        relationData: { amount: data.totalAmount },
+        performedBy: data.managedBy || 'User Dashboard',
       });
     } catch {
       // Abaikan jika sudah ada
@@ -265,6 +271,21 @@ export async function linkDocumentToFlowInDb(data: {
     },
   });
 
+  // Hubungkan dengan dokumen sebelumnya dalam alur jika ada
+  if (existingDocs.length > 0) {
+    const lastDoc = existingDocs[existingDocs.length - 1];
+    try {
+      await validateAndSaveRelationInDb({
+        sourceDocumentId: lastDoc.id,
+        targetDocumentId: newDoc.id,
+        relationData: { amount },
+        performedBy: data.performedBy || 'User Dashboard',
+      });
+    } catch {
+      // Abaikan jika relasi sudah ada
+    }
+  }
+
   // Catat AuditLog
   await db.auditLog.create({
     data: {
@@ -288,30 +309,68 @@ export async function linkDocumentToFlowInDb(data: {
  * Menghapus seluruh dokumen pada satu alur dari PostgreSQL
  */
 export async function deleteFlowFromDb(flowId: string) {
-  const docs = await db.document.findMany({
+  // 1. Cari dokumen berdasarkan referenceNumber (Flow ID standar seperti FLOW-8921)
+  let docs = await db.document.findMany({
     where: { referenceNumber: flowId },
     select: { id: true },
   });
 
-  const docIds = docs.map((d) => d.id);
-
-  if (docIds.length > 0) {
-    // Hapus references & audit logs
-    await db.documentReference.deleteMany({
-      where: {
-        OR: [{ sourceDocumentId: { in: docIds } }, { targetDocumentId: { in: docIds } }],
-      },
-    });
-    await db.auditLog.deleteMany({
-      where: { documentId: { in: docIds } },
-    });
-    await db.validationResult.deleteMany({
-      where: { documentId: { in: docIds } },
-    });
-    await db.document.deleteMany({
-      where: { id: { in: docIds } },
-    });
+  // 2. Fallback: jika tidak ditemukan via referenceNumber, periksa apakah flowId merupakan format fallback (FLOW-DOC-<suffix>) atau ID dokumen langsung
+  if (docs.length === 0) {
+    if (flowId.startsWith('FLOW-DOC-')) {
+      const suffix = flowId.replace('FLOW-DOC-', '');
+      docs = await db.document.findMany({
+        where: {
+          OR: [
+            { id: { endsWith: suffix } },
+            { id: flowId },
+            { documentNumber: suffix },
+          ],
+        },
+        select: { id: true },
+      });
+    } else {
+      docs = await db.document.findMany({
+        where: {
+          OR: [
+            { id: flowId },
+            { documentNumber: flowId },
+          ],
+        },
+        select: { id: true },
+      });
+    }
   }
 
-  return { success: true, count: docIds.length };
+  const docIds = docs.map((d) => d.id);
+
+  if (docIds.length === 0) {
+    throw new Error(`Alur atau dokumen "${flowId}" tidak ditemukan di database.`);
+  }
+
+  // Hapus relations & audit logs & items & validation results
+  await db.documentRelation.deleteMany({
+    where: {
+      OR: [{ sourceDocumentId: { in: docIds } }, { targetDocumentId: { in: docIds } }],
+    },
+  });
+  await db.documentItem.deleteMany({
+    where: { documentId: { in: docIds } },
+  });
+  await db.auditLog.deleteMany({
+    where: { documentId: { in: docIds } },
+  });
+  await db.validationResult.deleteMany({
+    where: { documentId: { in: docIds } },
+  });
+  await db.syncHistory.deleteMany({
+    where: { documentId: { in: docIds } },
+  });
+
+  const deleteResult = await db.document.deleteMany({
+    where: { id: { in: docIds } },
+  });
+
+  return { success: true, count: deleteResult.count };
 }
+

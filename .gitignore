@@ -52,3 +52,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local chat memory & agent session notes
+CHAT_MEMORY.md
+*chat-memory*.md
+.chat-memory/
+session-memory.md
+

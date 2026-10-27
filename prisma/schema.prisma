@@ -13,10 +13,10 @@ enum DocumentType {
   PR
   PO
   GR
-  INVOICE
+  PI
   PP
+  INVOICE
 }
-
 
 enum DocumentStatus {
   DRAFT
@@ -28,31 +28,39 @@ enum DocumentStatus {
 
 enum ValidationStatus {
   VALID
+  INVALID
+  WARNING
   FAILED
   PENDING
   SKIPPED
 }
 
 model Document {
-  id                String   @id @default(cuid())
+  id                String             @id @default(cuid())
   documentType      DocumentType
-  documentNumber    String   @unique
+  documentNumber    String             @unique
   referenceNumber   String?
   documentDate      DateTime
   vendor            String?
-  amount            Decimal  @db.Decimal(15, 2)
-  currency          String   @default("IDR")
+  amount            Decimal            @db.Decimal(15, 2)
+  currency          String             @default("IDR")
+  quantity          Decimal?           @db.Decimal(15, 2)
+  batchQuantity     Decimal?           @db.Decimal(15, 2)
+  taxAmount         Decimal?           @default(0) @db.Decimal(15, 2)
+  withholdingTax    Decimal?           @default(0) @db.Decimal(15, 2)
+  discountAmount    Decimal?           @default(0) @db.Decimal(15, 2)
   description       String?
   notes             String?
-  status            DocumentStatus @default(DRAFT)
-  validationStatus  ValidationStatus @default(PENDING)
-  references        DocumentReference[] @relation("SourceDocument")
-  referencedBy      DocumentReference[] @relation("TargetDocument")
+  status            DocumentStatus     @default(DRAFT)
+  validationStatus  ValidationStatus   @default(PENDING)
+  references        DocumentRelation[] @relation("SourceDocument")
+  referencedBy      DocumentRelation[] @relation("TargetDocument")
+  items             DocumentItem[]
   auditLogs         AuditLog[]
   syncHistory       SyncHistory[]
   validationResults ValidationResult[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
   createdBy         String?
   
   @@unique([documentType, documentNumber])
@@ -62,30 +70,55 @@ model Document {
   @@map("document")
 }
 
-model DocumentReference {
-  id                String   @id @default(cuid())
+model DocumentRelation {
+  id                String           @id @default(cuid())
   sourceDocumentId  String
-  sourceDocument    Document @relation("SourceDocument", fields: [sourceDocumentId], references: [id])
+  sourceDocument    Document         @relation("SourceDocument", fields: [sourceDocumentId], references: [id], onDelete: Cascade)
   targetDocumentId  String
-  targetDocument    Document @relation("TargetDocument", fields: [targetDocumentId], references: [id])
-  referenceDate     DateTime @default(now())
-  itemCount         Int      @default(1)
-  amount            Decimal  @db.Decimal(15, 2)
+  targetDocument    Document         @relation("TargetDocument", fields: [targetDocumentId], references: [id], onDelete: Cascade)
+  relationDate      DateTime         @default(now())
+  itemCount         Int              @default(1)
+  amount            Decimal          @default(0) @db.Decimal(15, 2)
+  quantityRatio     Decimal?         @db.Decimal(10, 4)
+  quantityOrdered   Decimal?         @db.Decimal(15, 2)
+  quantityReceived  Decimal?         @db.Decimal(15, 2)
   validationStatus  ValidationStatus @default(PENDING)
-  failureReason     String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  discrepancy       String?          @db.Text
+  failureReason     String?          @db.Text
+  metadata          Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
   
   @@unique([sourceDocumentId, targetDocumentId])
   @@index([sourceDocumentId])
   @@index([targetDocumentId])
-  @@map("documentReference")
+  @@index([validationStatus])
+  @@map("documentRelation")
+}
+
+model DocumentItem {
+  id              String   @id @default(cuid())
+  documentId      String
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  itemCode        String
+  itemName        String
+  quantity        Decimal  @db.Decimal(15, 2)
+  unitPrice       Decimal  @default(0) @db.Decimal(15, 2)
+  totalPrice      Decimal  @default(0) @db.Decimal(15, 2)
+  uom             String?  @default("PCS")
+  bomRatio        Decimal? @db.Decimal(10, 4)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([documentId])
+  @@index([itemCode])
+  @@map("documentItem")
 }
 
 model ValidationResult {
   id                String   @id @default(cuid())
   documentId        String
-  document          Document @relation(fields: [documentId], references: [id])
+  document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   ruleName          String
   ruleDescription   String?
   passed            Boolean
@@ -102,7 +135,7 @@ model ValidationResult {
 model AuditLog {
   id                String   @id @default(cuid())
   documentId        String
-  document          Document @relation(fields: [documentId], references: [id])
+  document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   action            String
   performedBy       String
   details           String?
@@ -114,16 +147,16 @@ model AuditLog {
 }
 
 model SyncHistory {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   documentId        String?
-  document          Document? @relation(fields: [documentId], references: [id])
+  document          Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
   syncType          String
   status            String
-  recordsProcessed  Int      @default(0)
-  recordsSuccessful Int      @default(0)
-  recordsFailed     Int      @default(0)
+  recordsProcessed  Int       @default(0)
+  recordsSuccessful Int       @default(0)
+  recordsFailed     Int       @default(0)
   errorLog          String?
-  startedAt         DateTime @default(now())
+  startedAt         DateTime  @default(now())
   completedAt       DateTime?
   
   @@index([syncType])

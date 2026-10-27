@@ -17,7 +17,8 @@ async function seed() {
     await client.query('DELETE FROM "validationResult"');
     await client.query('DELETE FROM "auditLog"');
     await client.query('DELETE FROM "syncHistory"');
-    await client.query('DELETE FROM "documentReference"');
+    await client.query('DELETE FROM "documentItem"');
+    await client.query('DELETE FROM "documentRelation"');
     await client.query('DELETE FROM "document"');
     await client.query('DELETE FROM "user"');
 
@@ -64,7 +65,7 @@ async function seed() {
     console.log('Seeding documents and references...');
     
     interface SeedDoc {
-      docType: 'BOM' | 'PR' | 'PO' | 'GR' | 'INVOICE';
+      docType: 'BOM' | 'PR' | 'PO' | 'GR' | 'PI' | 'PP' | 'INVOICE';
       docNumber: string;
       refNumber?: string;
       docDate: string;
@@ -230,7 +231,7 @@ async function seed() {
             id,
             d.docType,
             d.docNumber,
-            d.refNumber || null,
+            flow.id,
             new Date(d.docDate).toISOString(),
             d.vendor,
             d.amount,
@@ -270,11 +271,11 @@ async function seed() {
         }
 
         await client.query(
-          `INSERT INTO "documentReference" (
-            id, "sourceDocumentId", "targetDocumentId", "referenceDate",
-            "itemCount", amount, "validationStatus", "failureReason",
+          `INSERT INTO "documentRelation" (
+            id, "sourceDocumentId", "targetDocumentId", "relationDate",
+            "itemCount", amount, "validationStatus", "discrepancy", "failureReason",
             "createdAt", "updatedAt"
-          ) VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, NOW(), NOW())`,
+          ) VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, NOW(), NOW())`,
           [
             crypto.randomUUID(),
             sourceId,
@@ -282,6 +283,7 @@ async function seed() {
             1,
             ref.amount,
             ref.validationStatus,
+            ref.failureReason || null,
             ref.failureReason || null,
           ]
         );
