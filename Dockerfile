@@ -24,6 +24,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# Dummy connection string untuk proses build Next.js statis
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
 
 # Generate Prisma Client for Linux Alpine engine
 RUN npx prisma generate

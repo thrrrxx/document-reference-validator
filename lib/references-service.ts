@@ -24,7 +24,8 @@ function formatRupiah(amount: number): string {
  * Mengambil semua alur dokumen pengadaan dari PostgreSQL
  */
 export async function getAllFlowsFromDb(): Promise<ReferenceItem[]> {
-  const documents = await db.document.findMany({
+  try {
+    const documents = await db.document.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
       references: {
@@ -132,7 +133,11 @@ export async function getAllFlowsFromDb(): Promise<ReferenceItem[]> {
     });
   }
 
-  return result;
+    return result;
+  } catch (error) {
+    console.error('[getAllFlowsFromDb] Database query failed:', error);
+    return [];
+  }
 }
 
 /**

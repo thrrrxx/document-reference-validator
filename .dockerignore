@@ -9,7 +9,8 @@ node_modules
 .claude
 .cursor
 .devin
-.env.local
+.env
+.env*.local
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

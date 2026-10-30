@@ -34,6 +34,9 @@ const linkDocSchema = z.object({
  * GET /api/references
  * Mengambil seluruh alur dokumen pengadaan dari PostgreSQL.
  */
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const flows = await getAllFlowsFromDb();
