@@ -4,6 +4,14 @@ import 'dotenv/config';
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:shpower123@localhost:5432/document_reference_validator?schema=public';
 
+function hashPasswordScrypt(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = crypto
+    .scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 })
+    .toString('hex');
+  return `scrypt:${salt}:${derivedKey}`;
+}
+
 async function seed() {
   const client = new Client({ connectionString });
   await client.connect();
@@ -52,7 +60,7 @@ async function seed() {
     ];
 
     for (const u of users) {
-      const hashedPassword = crypto.createHash('sha256').update(u.password).digest('hex');
+      const hashedPassword = hashPasswordScrypt(u.password);
       await client.query(
         `INSERT INTO "user" (id, email, name, password, role, active, "createdAt", "updatedAt")
          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,

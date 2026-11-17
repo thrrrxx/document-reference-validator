@@ -381,11 +381,10 @@ export default function ReferencesClient() {
         <button
           type="button"
           onClick={() => handleStatusChange('all')}
-          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${
-            selectedStatus === 'all'
-              ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500/80 shadow-xs ring-1 ring-blue-500/30'
-              : 'bg-white dark:bg-[#0F172A] border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
-          }`}
+          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${selectedStatus === 'all'
+            ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500/80 shadow-xs ring-1 ring-blue-500/30'
+            : 'bg-white dark:bg-[#0F172A] border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -407,11 +406,10 @@ export default function ReferencesClient() {
         <button
           type="button"
           onClick={() => handleStatusChange('missing')}
-          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${
-            selectedStatus === 'missing'
-              ? 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-500/80 shadow-xs ring-1 ring-amber-500/30'
-              : 'bg-white dark:bg-[#0F172A] border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
-          }`}
+          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${selectedStatus === 'missing'
+            ? 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-500/80 shadow-xs ring-1 ring-amber-500/30'
+            : 'bg-white dark:bg-[#0F172A] border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
@@ -433,11 +431,10 @@ export default function ReferencesClient() {
         <button
           type="button"
           onClick={() => handleStatusChange('complete')}
-          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${
-            selectedStatus === 'complete'
-              ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-500/80 shadow-xs ring-1 ring-emerald-500/30'
-              : 'bg-white dark:bg-[#0F172A] border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
-          }`}
+          className={`p-4 rounded-2xl border text-left transition duration-200 flex flex-col justify-between ${selectedStatus === 'complete'
+            ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-500/80 shadow-xs ring-1 ring-emerald-500/30'
+            : 'bg-white dark:bg-[#0F172A] border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
@@ -483,11 +480,11 @@ export default function ReferencesClient() {
             </div>
             <div className="max-w-md mx-auto">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                {references.length === 0 ? 'Database PostgreSQL Bersih (0 Alur Dokumen)' : 'Tidak Ada Dokumen yang Cocok'}
+                {references.length === 0 ? 'Belum Ada Dokumen' : 'Tidak Ada Dokumen yang Cocok'}
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {references.length === 0
-                  ? 'Database lokal Anda siap digunakan. Silakan mulai buat alur dokumen baru untuk mempelajari bagaimana sistem memvalidasi alur BOM hingga Invoice.'
+                  ? ''
                   : 'Coba ubah kata kunci pencarian atau ganti filter status di bagian atas.'}
               </p>
             </div>
@@ -551,11 +548,10 @@ export default function ReferencesClient() {
                                   ? `${step.label}: ${step.docNumber} (${step.date})`
                                   : `${step.label}: Belum terlampir (Klik untuk melengkapi)`
                               }
-                              className={`px-2 py-1 rounded-lg text-xs font-mono font-semibold transition cursor-pointer ${
-                                step.status === 'present'
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
-                                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-dashed border-rose-300 dark:border-rose-800 hover:bg-rose-100'
-                              }`}
+                              className={`px-2 py-1 rounded-lg text-xs font-mono font-semibold transition cursor-pointer ${step.status === 'present'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
+                                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-dashed border-rose-300 dark:border-rose-800 hover:bg-rose-100'
+                                }`}
                             >
                               {step.code}
                               {step.status === 'missing' ? ' ✕' : ' ✓'}
@@ -827,12 +823,13 @@ export default function ReferencesClient() {
                   onChange={(e) => setSelectedStepToLink(e.target.value as DocumentFlowCode)}
                   className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                 >
-                  <option value="BOM">BOM - Bill of Materials</option>
-                  <option value="PR">PR - Purchase Requisition</option>
-                  <option value="PO">PO - Purchase Order</option>
-                  <option value="GRN">GRN - Goods Received Note</option>
-                  <option value="PI">PI - Purchase Invoice</option>
-                  <option value="PP">PP - Payment Proof</option>
+                  {linkingDocModal.flow.flowSteps
+                    .filter((step) => step.status === 'missing')
+                    .map((step) => (
+                      <option key={step.code} value={step.code}>
+                        {step.code} - {step.label}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -901,11 +898,10 @@ export default function ReferencesClient() {
                 {selectedRef.flowSteps.map((step) => (
                   <div
                     key={step.code}
-                    className={`p-3.5 rounded-xl border flex items-start justify-between ${
-                      step.status === 'present'
-                        ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
-                        : 'bg-rose-50/40 dark:bg-rose-950/20 border-dashed border-rose-300 dark:border-rose-800/60'
-                    }`}
+                    className={`p-3.5 rounded-xl border flex items-start justify-between ${step.status === 'present'
+                      ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+                      : 'bg-rose-50/40 dark:bg-rose-950/20 border-dashed border-rose-300 dark:border-rose-800/60'
+                      }`}
                   >
                     <div>
                       <div className="flex items-center gap-2">

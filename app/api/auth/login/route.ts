@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 import { db } from '@/lib/db';
-import { verifyPassword, hashPassword } from '@/lib/crypto';
+import { verifyPassword, hashPassword, needsRehash } from '@/lib/crypto';
 
 const loginRequestSchema = z.object({
     email: z.string().email('Format email tidak valid'),
@@ -60,8 +60,8 @@ export async function POST(request: Request) {
                     role: dbUser.role,
                 };
 
-                // Jika password di database masih plain text lama, otomatis migrasi ke hash SHA-256
-                if (dbUser.password === password) {
+                // Upgrade otomatis jika hash di database masih format lama (SHA-256 / plaintext) ke scrypt
+                if (needsRehash(dbUser.password)) {
                     db.user.update({
                         where: { id: dbUser.id },
                         data: { password: hashPassword(password) },
