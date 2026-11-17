@@ -394,206 +394,30 @@ export async function listAccurateReceiveItems(params?: {
  * dan melakukan upsert ke tabel `document`, `syncHistory`, dan `auditLog`.
  */
 export async function syncAccurateToPostgre(options?: {
-  syncTypes?: ('PO' | 'GR' | 'INVOICE' | 'ITEMS')[];
+  syncTypes?: ('PO' | 'GR' | 'INVOICE' | 'PI' | 'ITEMS')[];
   performedBy?: string;
+  actorUserId?: string;
+  ipAddress?: string;
 }) {
-  const syncTypes = options?.syncTypes || ['PO', 'GR', 'INVOICE'];
-  const performedBy = options?.performedBy || 'System Accurate Sync';
+  const rawTypes = options?.syncTypes || ['PO', 'GR', 'PI'];
+  const normalizedTypes = Array.from(
+    new Set(
+      rawTypes
+        .filter((t) => t !== 'ITEMS')
+        .map((t) => (t === 'INVOICE' ? 'PI' : t) as 'PO' | 'GR' | 'PI')
+    )
+  );
 
-  const syncLog = await db.syncHistory.create({
-    data: {
-      syncType: `ACCURATE_IMPORT_${syncTypes.join('_')}`,
-      status: 'RUNNING',
-      startedAt: new Date(),
-    },
+  const [{ AccurateAdapter }, { runErpIncrementalSync }] = await Promise.all([
+    import('@/lib/erp/accurate-adapter'),
+    import('@/lib/erp/sync-orchestrator'),
+  ]);
+
+  return runErpIncrementalSync({
+    connector: new AccurateAdapter(),
+    syncTypes: normalizedTypes,
+    performedBy: options?.performedBy || 'System Accurate Sync',
+    actorUserId: options?.actorUserId,
+    ipAddress: options?.ipAddress,
   });
-
-  let totalProcessed = 0;
-  let totalSuccessful = 0;
-  let totalFailed = 0;
-  const errors: string[] = [];
-
-  try {
-    // A. Sinkronisasi Purchase Orders (PO)
-    if (syncTypes.includes('PO')) {
-      try {
-        const poData = await listAccuratePurchaseOrders({ page: 1, pageSize: 50 });
-        if (poData.s && Array.isArray(poData.d)) {
-          for (const item of poData.d) {
-            totalProcessed++;
-            try {
-              const docNum = item.number || `PO-AOL-${item.id}`;
-              const docDate = item.transDate ? new Date(item.transDate) : new Date();
-              const amount = Number(item.totalAmount) || 0;
-              const vendor = typeof item.vendor === 'object' && item.vendor
-                ? (item.vendor as { name?: string }).name || 'Accurate Vendor'
-                : String(item.vendor || item.vendorName || 'Accurate Vendor');
-
-              await db.document.upsert({
-                where: { documentNumber: docNum },
-                update: {
-                  documentType: DocumentType.PO,
-                  documentDate: docDate,
-                  vendor,
-                  amount,
-                  description: (item.description as string) || `PO imported from Accurate Online #${item.id}`,
-                  updatedAt: new Date(),
-                },
-                create: {
-                  documentType: DocumentType.PO,
-                  documentNumber: docNum,
-                  documentDate: docDate,
-                  vendor,
-                  amount,
-                  currency: 'IDR',
-                  status: DocumentStatus.SUBMITTED,
-                  validationStatus: ValidationStatus.PENDING,
-                  description: (item.description as string) || `PO imported from Accurate Online #${item.id}`,
-                  createdBy: performedBy,
-                },
-              });
-              totalSuccessful++;
-            } catch (err: unknown) {
-              totalFailed++;
-              errors.push(`Gagal simpan PO ${item.number}: ${err instanceof Error ? err.message : String(err)}`);
-            }
-          }
-        }
-      } catch (err: unknown) {
-        errors.push(`Error fetch PO AOL: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-
-    // B. Sinkronisasi Penerimaan Barang (GR / Goods Receipt)
-    if (syncTypes.includes('GR')) {
-      try {
-        const grData = await listAccurateReceiveItems({ page: 1, pageSize: 50 });
-        if (grData.s && Array.isArray(grData.d)) {
-          for (const item of grData.d) {
-            totalProcessed++;
-            try {
-              const docNum = item.number || `GR-AOL-${item.id}`;
-              const docDate = item.transDate ? new Date(item.transDate) : new Date();
-              const vendor = typeof item.vendor === 'object' && item.vendor
-                ? (item.vendor as { name?: string }).name || 'Accurate Vendor'
-                : String(item.vendor || item.vendorName || 'Accurate Vendor');
-
-              await db.document.upsert({
-                where: { documentNumber: docNum },
-                update: {
-                  documentType: DocumentType.GR,
-                  documentDate: docDate,
-                  vendor,
-                  description: (item.description as string) || `Goods Receipt dari Accurate #${item.id}`,
-                  updatedAt: new Date(),
-                },
-                create: {
-                  documentType: DocumentType.GR,
-                  documentNumber: docNum,
-                  documentDate: docDate,
-                  vendor,
-                  amount: 0,
-                  currency: 'IDR',
-                  status: DocumentStatus.APPROVED,
-                  validationStatus: ValidationStatus.PENDING,
-                  description: (item.description as string) || `Goods Receipt dari Accurate #${item.id}`,
-                  createdBy: performedBy,
-                },
-              });
-              totalSuccessful++;
-            } catch (err: unknown) {
-              totalFailed++;
-              errors.push(`Gagal simpan GR ${item.number}: ${err instanceof Error ? err.message : String(err)}`);
-            }
-          }
-        }
-      } catch (err: unknown) {
-        errors.push(`Error fetch GR AOL: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-
-    // C. Sinkronisasi Faktur Pembelian (INVOICE)
-    if (syncTypes.includes('INVOICE')) {
-      try {
-        const invData = await listAccuratePurchaseInvoices({ page: 1, pageSize: 50 });
-        if (invData.s && Array.isArray(invData.d)) {
-          for (const item of invData.d) {
-            totalProcessed++;
-            try {
-              const docNum = item.number || `INV-AOL-${item.id}`;
-              const docDate = item.transDate ? new Date(item.transDate) : new Date();
-              const amount = Number(item.totalAmount) || 0;
-              const vendor = typeof item.vendor === 'object' && item.vendor
-                ? (item.vendor as { name?: string }).name || 'Accurate Vendor'
-                : String(item.vendor || item.vendorName || 'Accurate Vendor');
-
-              await db.document.upsert({
-                where: { documentNumber: docNum },
-                update: {
-                  documentType: DocumentType.INVOICE,
-                  documentDate: docDate,
-                  vendor,
-                  amount,
-                  description: (item.description as string) || `Invoice imported from Accurate #${item.id}`,
-                  updatedAt: new Date(),
-                },
-                create: {
-                  documentType: DocumentType.INVOICE,
-                  documentNumber: docNum,
-                  documentDate: docDate,
-                  vendor,
-                  amount,
-                  currency: 'IDR',
-                  status: DocumentStatus.SUBMITTED,
-                  validationStatus: ValidationStatus.PENDING,
-                  description: (item.description as string) || `Invoice imported from Accurate #${item.id}`,
-                  createdBy: performedBy,
-                },
-              });
-              totalSuccessful++;
-            } catch (err: unknown) {
-              totalFailed++;
-              errors.push(`Gagal simpan Invoice ${item.number}: ${err instanceof Error ? err.message : String(err)}`);
-            }
-          }
-        }
-      } catch (err: unknown) {
-        errors.push(`Error fetch Invoice AOL: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-
-    // Update status sync history
-    const isSuccess = totalFailed === 0;
-    await db.syncHistory.update({
-      where: { id: syncLog.id },
-      data: {
-        status: isSuccess ? 'SUCCESS' : (totalSuccessful > 0 ? 'PARTIAL' : 'FAILED'),
-        recordsProcessed: totalProcessed,
-        recordsSuccessful: totalSuccessful,
-        recordsFailed: totalFailed,
-        errorLog: errors.length > 0 ? errors.join('\n') : null,
-        completedAt: new Date(),
-      },
-    });
-
-    return {
-      success: isSuccess,
-      syncId: syncLog.id,
-      recordsProcessed: totalProcessed,
-      recordsSuccessful: totalSuccessful,
-      recordsFailed: totalFailed,
-      errors,
-    };
-  } catch (globalErr: unknown) {
-    const errorMsg = globalErr instanceof Error ? globalErr.message : String(globalErr);
-    await db.syncHistory.update({
-      where: { id: syncLog.id },
-      data: {
-        status: 'FAILED',
-        errorLog: errorMsg,
-        completedAt: new Date(),
-      },
-    });
-    throw globalErr;
-  }
 }

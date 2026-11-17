@@ -16,13 +16,17 @@ enum DocumentType {
   PI
   PP
   INVOICE
+  PURCHASE_RETURN
+  CREDIT_NOTE
 }
 
 enum DocumentStatus {
   DRAFT
   SUBMITTED
+  PENDING_APPROVAL
   APPROVED
   REJECTED
+  VOID
   ARCHIVED
 }
 
@@ -43,12 +47,20 @@ model Document {
   documentDate      DateTime
   vendor            String?
   amount            Decimal            @db.Decimal(15, 2)
-  currency          String             @default("IDR")
-  quantity          Decimal?           @db.Decimal(15, 2)
-  batchQuantity     Decimal?           @db.Decimal(15, 2)
-  taxAmount         Decimal?           @default(0) @db.Decimal(15, 2)
-  withholdingTax    Decimal?           @default(0) @db.Decimal(15, 2)
-  discountAmount    Decimal?           @default(0) @db.Decimal(15, 2)
+  currency           String             @default("IDR")
+  exchangeRate       Decimal            @default(1) @db.Decimal(15, 6)
+  baseCurrencyAmount Decimal?           @db.Decimal(15, 2)
+  quantity           Decimal?           @db.Decimal(15, 2)
+  batchQuantity      Decimal?           @db.Decimal(15, 2)
+  taxAmount          Decimal?           @default(0) @db.Decimal(15, 2)
+  taxRate            Decimal?           @default(0) @db.Decimal(5, 2)
+  withholdingTax     Decimal?           @default(0) @db.Decimal(15, 2)
+  withholdingTaxRate Decimal?           @default(0) @db.Decimal(5, 2)
+  isTaxInclusive     Boolean            @default(false)
+  discountAmount     Decimal?           @default(0) @db.Decimal(15, 2)
+  externalSystem     String?
+  externalId         String?
+  externalUpdatedAt  DateTime?
   description       String?
   notes             String?
   status            DocumentStatus     @default(DRAFT)
@@ -59,11 +71,16 @@ model Document {
   auditLogs         AuditLog[]
   syncHistory       SyncHistory[]
   validationResults ValidationResult[]
+  approvalTasks     ApprovalTask[]
+  voidedAt          DateTime?
+  voidedBy          String?
+  voidReason        String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   createdBy         String?
   
   @@unique([documentType, documentNumber])
+  @@unique([externalSystem, externalId])
   @@index([documentType])
   @@index([validationStatus])
   @@index([createdAt])
@@ -133,15 +150,23 @@ model ValidationResult {
 }
 
 model AuditLog {
-  id                String   @id @default(cuid())
-  documentId        String
-  document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  documentId        String?
+  document          Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  entityType        String    @default("DOCUMENT")
+  entityId          String?
   action            String
   performedBy       String
+  actorUserId       String?
+  oldValues         Json?
+  newValues         Json?
+  ipAddress         String?
   details           String?
-  createdAt         DateTime @default(now())
+  createdAt         DateTime  @default(now())
   
   @@index([documentId])
+  @@index([entityType, entityId])
+  @@index([actorUserId])
   @@index([createdAt])
   @@map("auditLog")
 }
@@ -200,4 +225,64 @@ model UserSession {
   @@index([userId])
   @@index([sessionToken])
   @@map("userSession")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+model ApprovalRule {
+  id           String         @id @default(cuid())
+  name         String
+  documentType DocumentType
+  minAmount    Decimal        @default(0) @db.Decimal(15, 2)
+  maxAmount    Decimal?       @db.Decimal(15, 2)
+  requiredRole String
+  stepOrder    Int            @default(1)
+  isActive     Boolean        @default(true)
+  tasks        ApprovalTask[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([documentType, isActive])
+  @@map("approvalRule")
+}
+
+model ApprovalTask {
+  id              String         @id @default(cuid())
+  documentId      String
+  document        Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  ruleId          String?
+  rule            ApprovalRule?  @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  stepOrder       Int            @default(1)
+  assignedRole    String
+  status          ApprovalStatus @default(PENDING)
+  decidedByUserId String?
+  decidedByName   String?
+  comment         String?
+  decidedAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([documentId, stepOrder])
+  @@index([assignedRole, status])
+  @@map("approvalTask")
+}
+
+model ValidationTolerance {
+  id                      String   @id @default(cuid())
+  name                    String   @unique
+  category                String   @default("GLOBAL")
+  qtyTolerancePercent     Decimal  @default(0) @db.Decimal(6, 2)
+  priceTolerancePercent   Decimal  @default(0) @db.Decimal(6, 2)
+  amountToleranceAbsolute Decimal  @default(0) @db.Decimal(15, 2)
+  isActive                Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([category, isActive])
+  @@map("validationTolerance")
 }

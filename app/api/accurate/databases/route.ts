@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAccurateDbList } from '@/lib/accurate';
+import { requireAuth } from '@/lib/auth';
 
 /**
  * GET /api/accurate/databases
@@ -7,6 +8,9 @@ import { getAccurateDbList } from '@/lib/accurate';
  * Sesuai dokumentasi: GET https://account.accurate.id/api/db-list.do
  */
 export async function GET(request: Request) {
+  const auth = await requireAuth(request, ['ACCURATE_READ']);
+  if (auth.error) return auth.error;
+
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token') || undefined;

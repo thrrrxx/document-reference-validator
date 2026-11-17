@@ -58,6 +58,23 @@ const BLOCKED_USER_AGENTS = [
   'gobuster',
 ];
 
+const PUBLIC_API_ROUTES = new Set([
+  '/api/auth/login',
+  '/api/auth/signup',
+  '/api/auth/logout',
+]);
+
+function hasSessionCookie(request: NextRequest): boolean {
+  const raw = request.cookies.get('auth_session')?.value;
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.email === 'string' && parsed.email.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -136,7 +153,29 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 5. Injeksi Security Headers ke respons
+  // 5. Auth Guard untuk Halaman Dashboard & API Terproteksi
+  const isAuthenticated = hasSessionCookie(request);
+
+  if (pathname.startsWith('/dashboard') && !isAuthenticated) {
+    const loginUrl = new URL('/auth/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (pathname.startsWith('/api/') && !PUBLIC_API_ROUTES.has(pathname) && !isAuthenticated) {
+    return new NextResponse(
+      JSON.stringify({
+        success: false,
+        message: 'Unauthorized: Silakan login terlebih dahulu untuk mengakses endpoint ini.',
+      }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  // 6. Injeksi Security Headers ke respons
   const response = NextResponse.next();
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'SAMEORIGIN');

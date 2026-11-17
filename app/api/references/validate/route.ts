@@ -5,18 +5,21 @@ import {
   validatePoToGr,
   validateGrToPi,
   validatePiToPp,
+  validateItemLevelThreeWayMatch,
   validateAndSaveRelationInDb,
   BomToPrValidationParams,
   PrToPoValidationParams,
   PoToGrValidationParams,
   GrToPiValidationParams,
   PiToPpValidationParams,
+  ItemThreeWayMatchParams,
   TransitionValidationResult,
 } from '@/lib/validators/p2p-validator';
+import { requireAuth } from '@/lib/auth';
 import { z } from 'zod';
 
 const validateTransitionSchema = z.object({
-  transition: z.enum(['BOM_TO_PR', 'PR_TO_PO', 'PO_TO_GR', 'GR_TO_PI', 'PI_TO_PP']),
+  transition: z.enum(['BOM_TO_PR', 'PR_TO_PO', 'PO_TO_GR', 'GR_TO_PI', 'PI_TO_PP', 'ITEM_3WAY_MATCH']),
   saveToDb: z.boolean().default(false),
   sourceDocumentId: z.string().optional(),
   targetDocumentId: z.string().optional(),
@@ -28,6 +31,9 @@ const validateTransitionSchema = z.object({
  * Menjalankan uji validasi bisnis modular P2P (BOM->PR, PR->PO, PO->GR, GR->PI, PI->PP).
  */
 export async function POST(request: Request) {
+  const auth = await requireAuth(request, ['FLOW_VALIDATE']);
+  if (auth.error) return auth.error;
+
   try {
     const body = await request.json();
     const parsed = validateTransitionSchema.safeParse(body);
@@ -59,6 +65,9 @@ export async function POST(request: Request) {
       case 'PI_TO_PP':
         result = validatePiToPp(payload as unknown as PiToPpValidationParams);
         break;
+      case 'ITEM_3WAY_MATCH':
+        result = validateItemLevelThreeWayMatch(payload as unknown as ItemThreeWayMatchParams);
+        break;
       default:
         return NextResponse.json({ success: false, message: 'Tipe transisi tidak didukung' }, { status: 400 });
     }
@@ -68,7 +77,9 @@ export async function POST(request: Request) {
       savedRelation = await validateAndSaveRelationInDb({
         sourceDocumentId,
         targetDocumentId,
-        performedBy: 'API Validation Endpoint',
+        performedBy: auth.user.displayName,
+        actorUserId: auth.user.id,
+        ipAddress: auth.user.ipAddress,
       });
     }
 

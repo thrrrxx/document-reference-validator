@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { fetchAccurateApi } from '@/lib/accurate';
+import { requireAuth } from '@/lib/auth';
+import { recordAuditLog } from '@/lib/audit';
 import { z } from 'zod';
 
 const pushDocumentSchema = z.object({
@@ -18,6 +20,9 @@ const pushDocumentSchema = z.object({
  * atau mengirimkan `customPayload` ke endpoint Accurate tertentu.
  */
 export async function POST(request: Request) {
+  const auth = await requireAuth(request, ['ACCURATE_PUSH']);
+  if (auth.error) return auth.error;
+
   try {
     const body = await request.json();
     const parsed = pushDocumentSchema.safeParse(body);
@@ -29,7 +34,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { documentId, documentNumber, endpoint, customPayload, performedBy } = parsed.data;
+    const { documentId, documentNumber, endpoint, customPayload } = parsed.data;
 
     let payload: Record<string, unknown> = customPayload || {};
 
@@ -61,14 +66,17 @@ export async function POST(request: Request) {
         ...customPayload,
       };
 
-      // Catat ke AuditLog
-      await db.auditLog.create({
-        data: {
-          documentId: doc.id,
-          action: 'PUSH_TO_ACCURATE',
-          performedBy,
-          details: JSON.stringify({ endpoint, payload }),
-        },
+      // Catat ke AuditLog secara append-only
+      await recordAuditLog({
+        documentId: doc.id,
+        entityType: 'DOCUMENT',
+        entityId: doc.id,
+        action: 'PUSH_TO_ACCURATE',
+        performedBy: auth.user.displayName,
+        actorUserId: auth.user.id,
+        ipAddress: auth.user.ipAddress,
+        newValues: payload,
+        details: { endpoint, payload },
       });
     }
 

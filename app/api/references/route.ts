@@ -5,6 +5,7 @@ import {
   linkDocumentToFlowInDb,
   deleteFlowFromDb,
 } from '@/lib/references-service';
+import { requireAuth, Permission } from '@/lib/auth';
 import { z } from 'zod';
 
 const createFlowSchema = z.object({
@@ -37,7 +38,10 @@ const linkDocSchema = z.object({
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await requireAuth(request, ['FLOW_READ']);
+  if (auth.error) return auth.error;
+
   try {
     const flows = await getAllFlowsFromDb();
 
@@ -66,6 +70,9 @@ export async function GET() {
  * Membuat alur pengadaan baru beserta dokumen-dokumennya di PostgreSQL.
  */
 export async function POST(request: Request) {
+  const auth = await requireAuth(request, ['FLOW_CREATE']);
+  if (auth.error) return auth.error;
+
   try {
     const body = await request.json();
     const parsed = createFlowSchema.safeParse(body);
@@ -77,7 +84,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const newFlow = await createFlowInDb(parsed.data);
+    const newFlow = await createFlowInDb({
+      ...parsed.data,
+      managedBy: auth.user.displayName,
+      actorUserId: auth.user.id,
+      ipAddress: auth.user.ipAddress,
+    });
 
     return NextResponse.json(
       {
@@ -110,7 +122,16 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updatedFlow = await linkDocumentToFlowInDb(parsed.data);
+    const stepPermission = `STEP_${parsed.data.code}` as Permission;
+    const auth = await requireAuth(request, ['FLOW_LINK', stepPermission]);
+    if (auth.error) return auth.error;
+
+    const updatedFlow = await linkDocumentToFlowInDb({
+      ...parsed.data,
+      performedBy: auth.user.displayName,
+      actorUserId: auth.user.id,
+      ipAddress: auth.user.ipAddress,
+    });
 
     return NextResponse.json({
       success: true,
@@ -129,6 +150,9 @@ export async function PATCH(request: Request) {
  * Menghapus alur dokumen dari PostgreSQL.
  */
 export async function DELETE(request: Request) {
+  const auth = await requireAuth(request, ['FLOW_DELETE']);
+  if (auth.error) return auth.error;
+
   try {
     const { searchParams } = new URL(request.url);
     const flowId = searchParams.get('flowId');
@@ -140,7 +164,11 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const result = await deleteFlowFromDb(flowId);
+    const result = await deleteFlowFromDb(flowId, {
+      performedBy: auth.user.displayName,
+      actorUserId: auth.user.id,
+      ipAddress: auth.user.ipAddress,
+    });
 
     return NextResponse.json({
       success: true,

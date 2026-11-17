@@ -28,6 +28,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { ReferenceItem, DocumentFlowStep, DocumentFlowCode } from '@/lib/mock-references';
+import DocumentLineageGraph from '@/components/references/DocumentLineageGraph';
 
 export default function ReferencesClient() {
   const router = useRouter();
@@ -41,6 +42,7 @@ export default function ReferencesClient() {
   const [references, setReferences] = useState<ReferenceItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedRef, setSelectedRef] = useState<ReferenceItem | null>(null);
+  const [detailViewMode, setDetailViewMode] = useState<'checklist' | 'graph'>('checklist');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Modal State: Tambah Dokumen Lengkapi (Missing Step)
@@ -873,7 +875,11 @@ export default function ReferencesClient() {
       {/* ========================================================================= */}
       {selectedRef && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#0F172A] w-full max-w-2xl rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl p-6 space-y-6 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+          <div
+            className={`bg-white dark:bg-[#0F172A] w-full ${
+              detailViewMode === 'graph' ? 'max-w-5xl' : 'max-w-2xl'
+            } rounded-2xl border border-gray-200 dark:border-gray-800 shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto transition-all`}
+          >
             <div className="flex items-start justify-between border-b border-gray-100 dark:border-gray-800 pb-4">
               <div>
                 <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400">
@@ -891,7 +897,35 @@ export default function ReferencesClient() {
               </button>
             </div>
 
-            {/* Pipeline Step Visual List */}
+            {/* View Mode Switcher: 6-Step Checklist vs Interactive Lineage DAG */}
+            <div className="flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+              <button
+                type="button"
+                onClick={() => setDetailViewMode('checklist')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  detailViewMode === 'checklist'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                6-Step Checklist
+              </button>
+              <button
+                type="button"
+                onClick={() => setDetailViewMode('graph')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  detailViewMode === 'graph'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                Interactive Lineage Graph (DAG)
+              </button>
+            </div>
+
+            {detailViewMode === 'graph' ? (
+              <DocumentLineageGraph flowId={selectedRef.id} />
+            ) : (
             <div className="space-y-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Urutan Dokumen (6-Step Pipeline):</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -941,6 +975,7 @@ export default function ReferencesClient() {
                 ))}
               </div>
             </div>
+            )}
 
             <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
               <button

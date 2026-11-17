@@ -1,5 +1,6 @@
 import { DocumentType, ValidationStatus } from '@prisma/client';
 import { db } from '@/lib/db';
+import { recordAuditLog } from '@/lib/audit';
 
 export type ValidationStatusType = 'VALID' | 'INVALID' | 'WARNING';
 
@@ -9,6 +10,12 @@ export type P2PTransitionType =
   | 'PO_TO_GR'
   | 'GR_TO_PI'
   | 'PI_TO_PP';
+
+export interface ToleranceConfig {
+  qtyTolerancePercent?: number;
+  priceTolerancePercent?: number;
+  amountToleranceAbsolute?: number;
+}
 
 export interface TransitionValidationResult {
   transition: P2PTransitionType;
@@ -288,36 +295,80 @@ export interface GrToPiValidationParams {
     documentNumber: string;
     verifiedPhysicalQuantity: number;
   }>;
+  returnedDocs?: Array<{
+    documentNumber: string;
+    returnedQuantity: number;
+  }>;
   piDoc: {
     documentNumber: string;
     invoicedQuantity: number;
   };
+  tolerance?: ToleranceConfig;
 }
 
 export function validateGrToPi(params: GrToPiValidationParams): TransitionValidationResult {
-  const { grDocs, piDoc } = params;
-  const totalVerifiedPhysicalQty = grDocs.reduce((acc, curr) => acc + curr.verifiedPhysicalQuantity, 0);
-  const difference = Math.abs(piDoc.invoicedQuantity - totalVerifiedPhysicalQty);
+  const { grDocs, returnedDocs = [], piDoc, tolerance } = params;
+  const grossPhysicalQty = grDocs.reduce((acc, curr) => acc + curr.verifiedPhysicalQuantity, 0);
+  const totalReturnedQty = returnedDocs.reduce((acc, curr) => acc + curr.returnedQuantity, 0);
+  const netBillableQty = Math.max(0, grossPhysicalQty - totalReturnedQty);
+
+  const signedDiff = piDoc.invoicedQuantity - netBillableQty;
+  const absDiff = Math.abs(signedDiff);
+  const qtyTolerancePct = Math.max(0, Number(tolerance?.qtyTolerancePercent) || 0);
+  const allowedDelta = (netBillableQty * qtyTolerancePct) / 100;
 
   const ruleName = 'RULE_GR_PI_QUANTITY_MATCHING';
-  const ruleDescription = 'Kuantitas faktur (PI) wajib sama persis dengan kuantitas fisik yang diterima di GR';
+  const ruleDescription =
+    'Kuantitas faktur (PI) wajib sesuai dengan kuantitas fisik bersih GR (GR dikurangi Purchase Return) dalam batas toleransi';
 
-  if (piDoc.invoicedQuantity !== totalVerifiedPhysicalQty) {
-    const isOverBilled = piDoc.invoicedQuantity > totalVerifiedPhysicalQty;
+  if (absDiff > 0) {
+    const isWithinTolerance = qtyTolerancePct > 0 && absDiff <= allowedDelta;
+    const isOverBilled = signedDiff > 0;
+
+    if (isWithinTolerance) {
+      return {
+        transition: 'GR_TO_PI',
+        passed: true,
+        status: 'WARNING',
+        ruleName,
+        ruleDescription,
+        summary: `Valid (Dalam Batas Toleransi ±${qtyTolerancePct}%): Faktur (${piDoc.invoicedQuantity}) selisih ${absDiff.toFixed(2)} unit dari fisik bersih GR (${netBillableQty})`,
+        discrepancy: `Selisih kuantitas (${absDiff.toFixed(2)} unit) masih berada dalam batas toleransi ${qtyTolerancePct}% (maks ±${allowedDelta.toFixed(2)} unit).`,
+        calculation: {
+          sourceValue: netBillableQty,
+          targetValue: piDoc.invoicedQuantity,
+          difference: signedDiff,
+          limitValue: allowedDelta,
+          details: {
+            grossPhysicalQty,
+            totalReturnedQty,
+            netBillableQty,
+            qtyTolerancePercent: qtyTolerancePct,
+            grBreakdown: grDocs.map((g) => ({ docNumber: g.documentNumber, qty: g.verifiedPhysicalQuantity })),
+            returnBreakdown: returnedDocs,
+          },
+        },
+      };
+    }
+
     return {
       transition: 'GR_TO_PI',
       passed: false,
       status: 'INVALID',
       ruleName,
       ruleDescription,
-      summary: `Quantity Mismatch 3-Way Match: Faktur (${piDoc.invoicedQuantity}) ${isOverBilled ? 'melebihi' : 'kurang dari'} fisik GR (${totalVerifiedPhysicalQty})`,
-      discrepancy: `Selisih Fisik vs Faktur (Quantity Discrepancy): Kuantitas ditagihkan pada PI (${piDoc.invoicedQuantity} unit) tidak sesuai dengan total barang fisik yang diterima gudang pada dokumen GR (${totalVerifiedPhysicalQty} unit). Selisih ${isOverBilled ? 'kelebihan tagihan' : 'kekurangan tagihan'} sebesar ${difference.toFixed(2)} unit.`,
+      summary: `Quantity Mismatch 3-Way Match: Faktur (${piDoc.invoicedQuantity}) ${isOverBilled ? 'melebihi' : 'kurang dari'} fisik bersih GR (${netBillableQty})`,
+      discrepancy: `Selisih Fisik vs Faktur (Quantity Discrepancy): Kuantitas ditagihkan pada PI (${piDoc.invoicedQuantity} unit) tidak sesuai dengan total barang fisik bersih GR (${netBillableQty} unit${totalReturnedQty > 0 ? `, setelah dikurangi retur ${totalReturnedQty} unit` : ''}). Selisih ${isOverBilled ? 'kelebihan tagihan' : 'kekurangan tagihan'} sebesar ${absDiff.toFixed(2)} unit.`,
       calculation: {
-        sourceValue: totalVerifiedPhysicalQty,
+        sourceValue: netBillableQty,
         targetValue: piDoc.invoicedQuantity,
-        difference: piDoc.invoicedQuantity - totalVerifiedPhysicalQty,
+        difference: signedDiff,
         details: {
+          grossPhysicalQty,
+          totalReturnedQty,
+          netBillableQty,
           grBreakdown: grDocs.map((g) => ({ docNumber: g.documentNumber, qty: g.verifiedPhysicalQuantity })),
+          returnBreakdown: returnedDocs,
         },
       },
     };
@@ -329,14 +380,17 @@ export function validateGrToPi(params: GrToPiValidationParams): TransitionValida
     status: 'VALID',
     ruleName,
     ruleDescription,
-    summary: `Valid: Kuantitas faktur PI (${piDoc.invoicedQuantity} unit) cocok sempurna dengan kuantitas fisik GR (${totalVerifiedPhysicalQty} unit)`,
+    summary: `Valid: Kuantitas faktur PI (${piDoc.invoicedQuantity} unit) cocok sempurna dengan kuantitas fisik bersih GR (${netBillableQty} unit)`,
     discrepancy: null,
     calculation: {
-      sourceValue: totalVerifiedPhysicalQty,
+      sourceValue: netBillableQty,
       targetValue: piDoc.invoicedQuantity,
       difference: 0,
       details: {
+        grossPhysicalQty,
+        totalReturnedQty,
         matchedGrCount: grDocs.length,
+        returnCount: returnedDocs.length,
       },
     },
   };
@@ -345,7 +399,7 @@ export function validateGrToPi(params: GrToPiValidationParams): TransitionValida
 // -------------------------------------------------------------
 // 5. PI ke PP Validator (Kardinalitas: 1 : N atau N : 1)
 // Aturan: Akumulasi nominal bayar di PP tidak boleh melebihi total
-// nilai tagihan akhir di PI (setelah memperhitungkan PPN, PPh, dan potongan).
+// nilai tagihan akhir di PI (setelah PPN, PPh, potongan, & Credit Note).
 // -------------------------------------------------------------
 export interface PiToPpValidationParams {
   piDocs: Array<{
@@ -355,18 +409,23 @@ export interface PiToPpValidationParams {
     withholdingTax?: number;   // PPh (-)
     discountAmount?: number;   // Potongan/diskon (-)
   }>;
+  creditNoteDocs?: Array<{
+    documentNumber: string;
+    amount: number;
+  }>;
   currentPayment: {
     documentNumber: string;
     amount: number;
   };
   previousTotalPaid?: number;  // Nominal yang sudah dibayar pada termin-termin sebelumnya
+  tolerance?: ToleranceConfig;
 }
 
 export function validatePiToPp(params: PiToPpValidationParams): TransitionValidationResult {
-  const { piDocs, currentPayment, previousTotalPaid = 0 } = params;
+  const { piDocs, creditNoteDocs = [], currentPayment, previousTotalPaid = 0, tolerance } = params;
 
   // Hitung total nilai tagihan bersih (Net Invoiced Amount) dari seluruh faktur yang dilunasi
-  let totalNetInvoiceAmount = 0;
+  let grossNetInvoiceAmount = 0;
   const invoiceBreakdown: Record<string, { base: number; tax: number; wht: number; discount: number; net: number }> = {};
 
   for (const inv of piDocs) {
@@ -376,7 +435,7 @@ export function validatePiToPp(params: PiToPpValidationParams): TransitionValida
     const discount = Number(inv.discountAmount) || 0;
     const net = base + tax - wht - discount;
 
-    totalNetInvoiceAmount += net;
+    grossNetInvoiceAmount += net;
     invoiceBreakdown[inv.documentNumber] = {
       base,
       tax,
@@ -386,14 +445,18 @@ export function validatePiToPp(params: PiToPpValidationParams): TransitionValida
     };
   }
 
+  const totalCreditNotes = creditNoteDocs.reduce((acc, cn) => acc + (Number(cn.amount) || 0), 0);
+  const totalNetInvoiceAmount = Math.max(0, grossNetInvoiceAmount - totalCreditNotes);
+
   const totalPaid = previousTotalPaid + currentPayment.amount;
   const difference = totalPaid - totalNetInvoiceAmount;
+  const absAllowance = Math.max(0, Number(tolerance?.amountToleranceAbsolute) || 0);
 
   const ruleName = 'RULE_PI_PP_BALANCE_MATCHING';
-  const ruleDescription = 'Akumulasi pembayaran PP tidak boleh melebihi nilai tagihan akhir PI (setelah pajak & diskon)';
+  const ruleDescription = 'Akumulasi pembayaran PP tidak boleh melebihi nilai tagihan akhir PI (setelah pajak, diskon, & Credit Note)';
 
-  // 1. Overpayment (Pelanggaran)
-  if (totalPaid > totalNetInvoiceAmount) {
+  // 1. Overpayment (di luar toleransi)
+  if (totalPaid > totalNetInvoiceAmount + absAllowance) {
     return {
       transition: 'PI_TO_PP',
       passed: false,
@@ -401,7 +464,7 @@ export function validatePiToPp(params: PiToPpValidationParams): TransitionValida
       ruleName,
       ruleDescription,
       summary: `Overpayment: Total pembayaran (Rp ${totalPaid.toLocaleString('id-ID')}) melebihi tagihan bersih PI (Rp ${totalNetInvoiceAmount.toLocaleString('id-ID')})`,
-      discrepancy: `Kelebihan Bayar (Overpayment): Akumulasi pembayaran pada PP (Rp ${totalPaid.toLocaleString('id-ID')}) melampaui total nilai tagihan bersih PI (Rp ${totalNetInvoiceAmount.toLocaleString('id-ID')}). Terjadi kelebihan transfer sebesar Rp ${difference.toLocaleString('id-ID')}.`,
+      discrepancy: `Kelebihan Bayar (Overpayment): Akumulasi pembayaran pada PP (Rp ${totalPaid.toLocaleString('id-ID')}) melampaui total nilai tagihan bersih PI (Rp ${totalNetInvoiceAmount.toLocaleString('id-ID')}${totalCreditNotes > 0 ? `, setelah dikurangi Credit Note Rp ${totalCreditNotes.toLocaleString('id-ID')}` : ''}). Terjadi kelebihan transfer sebesar Rp ${difference.toLocaleString('id-ID')}.`,
       calculation: {
         sourceValue: totalNetInvoiceAmount,
         targetValue: totalPaid,
@@ -410,14 +473,36 @@ export function validatePiToPp(params: PiToPpValidationParams): TransitionValida
         details: {
           currentPayment: currentPayment.amount,
           previousTotalPaid,
+          totalCreditNotes,
           invoiceBreakdown,
+          creditNoteDocs,
         },
       },
     };
   }
 
+  // 1b. Selisih kecil dalam toleransi pembulatan
+  if (totalPaid > totalNetInvoiceAmount && absAllowance > 0) {
+    return {
+      transition: 'PI_TO_PP',
+      passed: true,
+      status: 'WARNING',
+      ruleName,
+      ruleDescription,
+      summary: `Valid (Toleransi Pembulatan): Selisih lebih bayar Rp ${difference.toLocaleString('id-ID')} masih dalam batas toleransi Rp ${absAllowance.toLocaleString('id-ID')}`,
+      discrepancy: `Pembayaran melebihi tagihan bersih sebesar Rp ${difference.toLocaleString('id-ID')}, masih dalam toleransi pembulatan.`,
+      calculation: {
+        sourceValue: totalNetInvoiceAmount,
+        targetValue: totalPaid,
+        difference,
+        limitValue: totalNetInvoiceAmount + absAllowance,
+        details: { totalCreditNotes, invoiceBreakdown, creditNoteDocs },
+      },
+    };
+  }
+
   // 2. Partial Payment / Installment (Termin Parsial)
-  if (totalPaid < totalNetInvoiceAmount) {
+  if (totalPaid < totalNetInvoiceAmount - absAllowance) {
     const remainingBalance = totalNetInvoiceAmount - totalPaid;
     return {
       transition: 'PI_TO_PP',
@@ -426,16 +511,18 @@ export function validatePiToPp(params: PiToPpValidationParams): TransitionValida
       ruleName,
       ruleDescription,
       summary: `Pembayaran Parsial (Termin): Terbayar Rp ${totalPaid.toLocaleString('id-ID')} dari Rp ${totalNetInvoiceAmount.toLocaleString('id-ID')} (Sisa Rp ${remainingBalance.toLocaleString('id-ID')})`,
-      discrepancy: `Pembayaran termin/cicilan: Tagihan belum lunas penuh. Terbayar ${((totalPaid / totalNetInvoiceAmount) * 100).toFixed(1)}%, sisa saldo kewajiban: Rp ${remainingBalance.toLocaleString('id-ID')}.`,
+      discrepancy: `Pembayaran termin/cicilan: Tagihan belum lunas penuh. Terbayar ${totalNetInvoiceAmount > 0 ? ((totalPaid / totalNetInvoiceAmount) * 100).toFixed(1) : '100.0'}%, sisa saldo kewajiban: Rp ${remainingBalance.toLocaleString('id-ID')}.`,
       calculation: {
         sourceValue: totalNetInvoiceAmount,
         targetValue: totalPaid,
         difference: 0,
         limitValue: totalNetInvoiceAmount,
         details: {
-          settlementRatePercent: Number(((totalPaid / totalNetInvoiceAmount) * 100).toFixed(1)),
+          settlementRatePercent: totalNetInvoiceAmount > 0 ? Number(((totalPaid / totalNetInvoiceAmount) * 100).toFixed(1)) : 100,
           remainingBalance,
+          totalCreditNotes,
           invoiceBreakdown,
+          creditNoteDocs,
         },
       },
     };
@@ -458,8 +545,213 @@ export function validatePiToPp(params: PiToPpValidationParams): TransitionValida
       details: {
         settlementRatePercent: 100,
         remainingBalance: 0,
+        totalCreditNotes,
         invoiceBreakdown,
+        creditNoteDocs,
       },
+    },
+  };
+}
+
+// -------------------------------------------------------------
+// 5B. Item-Level 3-Way Matching (PO vs GR - Return vs PI)
+// Memeriksa kuantitas & unitPrice per SKU itemCode dengan tolerance
+// -------------------------------------------------------------
+export interface ItemLineInput {
+  itemCode: string;
+  itemName?: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface ItemThreeWayMatchParams {
+  poItems?: ItemLineInput[];
+  grItems: ItemLineInput[];
+  returnedItems?: ItemLineInput[];
+  piItems: ItemLineInput[];
+  tolerance?: ToleranceConfig;
+}
+
+export interface ItemMatchDetail {
+  itemCode: string;
+  itemName: string;
+  poQty: number | null;
+  poUnitPrice: number | null;
+  grGrossQty: number;
+  returnedQty: number;
+  netBillableQty: number;
+  piQty: number;
+  piUnitPrice: number;
+  qtyDiff: number;
+  priceDiffPercent: number | null;
+  status: ValidationStatusType;
+  reason: string | null;
+}
+
+export function validateItemLevelThreeWayMatch(
+  params: ItemThreeWayMatchParams
+): TransitionValidationResult {
+  const { poItems = [], grItems, returnedItems = [], piItems, tolerance } = params;
+  const qtyTolPct = Math.max(0, Number(tolerance?.qtyTolerancePercent) || 0);
+  const priceTolPct = Math.max(0, Number(tolerance?.priceTolerancePercent) || 0);
+
+  const aggregateByCode = (lines: ItemLineInput[]) => {
+    const map = new Map<string, { itemName: string; qty: number; unitPrice: number }>();
+    for (const line of lines) {
+      const code = line.itemCode.trim().toUpperCase();
+      const existing = map.get(code);
+      if (existing) {
+        existing.qty += Number(line.quantity) || 0;
+        if (line.unitPrice > 0) existing.unitPrice = Number(line.unitPrice);
+      } else {
+        map.set(code, {
+          itemName: line.itemName || code,
+          qty: Number(line.quantity) || 0,
+          unitPrice: Number(line.unitPrice) || 0,
+        });
+      }
+    }
+    return map;
+  };
+
+  const poMap = aggregateByCode(poItems);
+  const grMap = aggregateByCode(grItems);
+  const retMap = aggregateByCode(returnedItems);
+  const piMap = aggregateByCode(piItems);
+
+  const allCodes = new Set<string>([
+    ...poMap.keys(),
+    ...grMap.keys(),
+    ...piMap.keys(),
+  ]);
+
+  const itemDetails: ItemMatchDetail[] = [];
+  const invalidReasons: string[] = [];
+  const warningReasons: string[] = [];
+
+  for (const code of allCodes) {
+    const po = poMap.get(code);
+    const gr = grMap.get(code);
+    const ret = retMap.get(code);
+    const pi = piMap.get(code);
+
+    const grGrossQty = gr?.qty ?? 0;
+    const returnedQty = ret?.qty ?? 0;
+    const netBillableQty = Math.max(0, grGrossQty - returnedQty);
+    const piQty = pi?.qty ?? 0;
+    const piUnitPrice = pi?.unitPrice ?? 0;
+    const poUnitPrice = po?.unitPrice ?? null;
+
+    const qtyDiff = piQty - netBillableQty;
+    const absQtyDiff = Math.abs(qtyDiff);
+    const allowedQtyDelta = (netBillableQty * qtyTolPct) / 100;
+
+    let priceDiffPercent: number | null = null;
+    if (poUnitPrice !== null && poUnitPrice > 0 && piUnitPrice > 0) {
+      priceDiffPercent = Number((((piUnitPrice - poUnitPrice) / poUnitPrice) * 100).toFixed(2));
+    }
+
+    let status: ValidationStatusType = 'VALID';
+    const reasons: string[] = [];
+
+    if (pi && !gr) {
+      status = 'INVALID';
+      reasons.push(`SKU ${code} ditagih (${piQty}) tanpa bukti penerimaan GR`);
+    } else if (absQtyDiff > 0) {
+      if (qtyTolPct > 0 && absQtyDiff <= allowedQtyDelta) {
+        status = 'WARNING';
+        reasons.push(`SKU ${code} selisih qty ${qtyDiff.toFixed(2)} dalam toleransi ±${qtyTolPct}%`);
+      } else {
+        status = 'INVALID';
+        reasons.push(`SKU ${code} selisih qty: PI=${piQty} vs GR Bersih=${netBillableQty}`);
+      }
+    }
+
+    if (priceDiffPercent !== null && Math.abs(priceDiffPercent) > 0) {
+      if (priceTolPct > 0 && Math.abs(priceDiffPercent) <= priceTolPct) {
+        if (status !== 'INVALID') status = 'WARNING';
+        reasons.push(`SKU ${code} selisih harga ${priceDiffPercent}% dalam toleransi ±${priceTolPct}%`);
+      } else {
+        status = 'INVALID';
+        reasons.push(`SKU ${code} selisih harga ${priceDiffPercent}% (PO=${poUnitPrice}, PI=${piUnitPrice})`);
+      }
+    }
+
+    if (status === 'INVALID') invalidReasons.push(...reasons);
+    else if (status === 'WARNING') warningReasons.push(...reasons);
+
+    itemDetails.push({
+      itemCode: code,
+      itemName: pi?.itemName || gr?.itemName || po?.itemName || code,
+      poQty: po?.qty ?? null,
+      poUnitPrice,
+      grGrossQty,
+      returnedQty,
+      netBillableQty,
+      piQty,
+      piUnitPrice,
+      qtyDiff,
+      priceDiffPercent,
+      status,
+      reason: reasons.length > 0 ? reasons.join('; ') : null,
+    });
+  }
+
+  const ruleName = 'RULE_ITEM_3WAY_MATCH_QTY_PRICE';
+  const ruleDescription = 'Validasi 3-Way Match level item (SKU): kesesuaian kuantitas GR bersih & harga satuan PO vs Faktur (PI)';
+
+  const totalNetGrQty = itemDetails.reduce((s, d) => s + d.netBillableQty, 0);
+  const totalPiQty = itemDetails.reduce((s, d) => s + d.piQty, 0);
+
+  if (invalidReasons.length > 0) {
+    return {
+      transition: 'GR_TO_PI',
+      passed: false,
+      status: 'INVALID',
+      ruleName,
+      ruleDescription,
+      summary: `3-Way Match Item Mismatch (${invalidReasons.length} pelanggaran SKU)`,
+      discrepancy: invalidReasons.join(' | '),
+      calculation: {
+        sourceValue: totalNetGrQty,
+        targetValue: totalPiQty,
+        difference: totalPiQty - totalNetGrQty,
+        details: { itemDetails },
+      },
+    };
+  }
+
+  if (warningReasons.length > 0) {
+    return {
+      transition: 'GR_TO_PI',
+      passed: true,
+      status: 'WARNING',
+      ruleName,
+      ruleDescription,
+      summary: `3-Way Match Item Valid dalam Toleransi (${warningReasons.length} catatan SKU)`,
+      discrepancy: warningReasons.join(' | '),
+      calculation: {
+        sourceValue: totalNetGrQty,
+        targetValue: totalPiQty,
+        difference: totalPiQty - totalNetGrQty,
+        details: { itemDetails },
+      },
+    };
+  }
+
+  return {
+    transition: 'GR_TO_PI',
+    passed: true,
+    status: 'VALID',
+    ruleName,
+    ruleDescription,
+    summary: `Valid: Seluruh ${itemDetails.length} SKU pada faktur PI cocok 100% (Qty & Harga) dengan PO/GR`,
+    discrepancy: null,
+    calculation: {
+      sourceValue: totalNetGrQty,
+      targetValue: totalPiQty,
+      difference: 0,
+      details: { itemDetails },
     },
   };
 }
@@ -489,6 +781,15 @@ export function evaluateTransition(
   context?: {
     previousQuantity?: number;
     previousAmount?: number;
+    tolerance?: ToleranceConfig;
+    returnedDocs?: Array<{
+      documentNumber: string;
+      returnedQuantity: number;
+    }>;
+    creditNoteDocs?: Array<{
+      documentNumber: string;
+      amount: number;
+    }>;
     additionalSources?: Array<{
       number: string;
       quantity?: number;
@@ -573,10 +874,12 @@ export function evaluateTransition(
 
     return validateGrToPi({
       grDocs: grs,
+      returnedDocs: context?.returnedDocs,
       piDoc: {
         documentNumber: targetDoc.number,
         invoicedQuantity: Number(targetDoc.quantity) || 0,
       },
+      tolerance: context?.tolerance,
     });
   }
 
@@ -601,11 +904,13 @@ export function evaluateTransition(
 
     return validatePiToPp({
       piDocs: pis,
+      creditNoteDocs: context?.creditNoteDocs,
       currentPayment: {
         documentNumber: targetDoc.number,
         amount: Number(targetDoc.amount) || 0,
       },
       previousTotalPaid: context?.previousAmount || 0,
+      tolerance: context?.tolerance,
     });
   }
 
@@ -639,38 +944,135 @@ export async function validateAndSaveRelationInDb(params: {
     quantityRatio?: number;
   };
   performedBy?: string;
+  actorUserId?: string;
+  ipAddress?: string;
 }) {
   const sourceDoc = await db.document.findUnique({
     where: { id: params.sourceDocumentId },
+    include: { items: true },
   });
   const targetDoc = await db.document.findUnique({
     where: { id: params.targetDocumentId },
+    include: { items: true },
   });
 
   if (!sourceDoc || !targetDoc) {
     throw new Error('Dokumen sumber atau target tidak ditemukan');
   }
 
-  // Jalankan validator
-  const validation = evaluateTransition(
-    {
-      type: sourceDoc.documentType,
-      number: sourceDoc.documentNumber,
-      amount: Number(sourceDoc.amount),
-      quantity: Number(sourceDoc.quantity) || undefined,
-      batchQuantity: Number(sourceDoc.batchQuantity) || undefined,
-      taxAmount: Number(sourceDoc.taxAmount) || undefined,
-      withholdingTax: Number(sourceDoc.withholdingTax) || undefined,
-      discountAmount: Number(sourceDoc.discountAmount) || undefined,
-      status: sourceDoc.status,
-    },
-    {
-      type: targetDoc.documentType,
-      number: targetDoc.documentNumber,
-      amount: Number(targetDoc.amount),
-      quantity: Number(targetDoc.quantity) || undefined,
-    }
-  );
+  if (sourceDoc.status === 'VOID' || targetDoc.status === 'VOID') {
+    throw new Error('Tidak dapat menautkan atau memvalidasi dokumen yang berstatus VOID.');
+  }
+
+  // Ambil konfigurasi toleransi aktif (jika tersedia di DB)
+  const activeTolerance = await db.validationTolerance.findFirst({
+    where: { category: 'GLOBAL', isActive: true },
+  });
+
+  const tolerance: ToleranceConfig | undefined = activeTolerance
+    ? {
+        qtyTolerancePercent: Number(activeTolerance.qtyTolerancePercent) || 0,
+        priceTolerancePercent: Number(activeTolerance.priceTolerancePercent) || 0,
+        amountToleranceAbsolute: Number(activeTolerance.amountToleranceAbsolute) || 0,
+      }
+    : undefined;
+
+  // Ambil Purchase Return & Credit Note dalam alur yang sama (jika ada)
+  const flowRef = targetDoc.referenceNumber || sourceDoc.referenceNumber;
+  const adjustmentDocs = flowRef
+    ? await db.document.findMany({
+        where: {
+          referenceNumber: flowRef,
+          status: { notIn: ['VOID', 'REJECTED'] },
+          documentType: { in: [DocumentType.PURCHASE_RETURN, DocumentType.CREDIT_NOTE, DocumentType.PO] },
+        },
+        include: { items: true },
+      })
+    : [];
+
+  const returnedDocs = adjustmentDocs
+    .filter((d) => d.documentType === DocumentType.PURCHASE_RETURN)
+    .map((d) => ({
+      documentNumber: d.documentNumber,
+      returnedQuantity: Number(d.quantity) || 0,
+    }));
+
+  const creditNoteDocs = adjustmentDocs
+    .filter((d) => d.documentType === DocumentType.CREDIT_NOTE)
+    .map((d) => ({
+      documentNumber: d.documentNumber,
+      amount: Number(d.amount) || 0,
+    }));
+
+  // Jalankan item-level 3-Way Matching jika kedua dokumen (GR -> PI) memiliki detail item SKU
+  const isGrToPi =
+    sourceDoc.documentType === DocumentType.GR &&
+    (targetDoc.documentType === DocumentType.PI || targetDoc.documentType === DocumentType.INVOICE);
+
+  let validation: TransitionValidationResult;
+
+  if (isGrToPi && sourceDoc.items.length > 0 && targetDoc.items.length > 0) {
+    const poInFlow = adjustmentDocs.find((d) => d.documentType === DocumentType.PO);
+    const returnedItems = adjustmentDocs
+      .filter((d) => d.documentType === DocumentType.PURCHASE_RETURN)
+      .flatMap((d) =>
+        d.items.map((it) => ({
+          itemCode: it.itemCode,
+          itemName: it.itemName,
+          quantity: Number(it.quantity),
+          unitPrice: Number(it.unitPrice),
+        }))
+      );
+
+    validation = validateItemLevelThreeWayMatch({
+      poItems: poInFlow?.items.map((it) => ({
+        itemCode: it.itemCode,
+        itemName: it.itemName,
+        quantity: Number(it.quantity),
+        unitPrice: Number(it.unitPrice),
+      })),
+      grItems: sourceDoc.items.map((it) => ({
+        itemCode: it.itemCode,
+        itemName: it.itemName,
+        quantity: Number(it.quantity),
+        unitPrice: Number(it.unitPrice),
+      })),
+      returnedItems,
+      piItems: targetDoc.items.map((it) => ({
+        itemCode: it.itemCode,
+        itemName: it.itemName,
+        quantity: Number(it.quantity),
+        unitPrice: Number(it.unitPrice),
+      })),
+      tolerance,
+    });
+  } else {
+    // Jalankan validator level header (mendukung Purchase Return, Credit Note, & Tolerance)
+    validation = evaluateTransition(
+      {
+        type: sourceDoc.documentType,
+        number: sourceDoc.documentNumber,
+        amount: Number(sourceDoc.amount),
+        quantity: Number(sourceDoc.quantity) || undefined,
+        batchQuantity: Number(sourceDoc.batchQuantity) || undefined,
+        taxAmount: Number(sourceDoc.taxAmount) || undefined,
+        withholdingTax: Number(sourceDoc.withholdingTax) || undefined,
+        discountAmount: Number(sourceDoc.discountAmount) || undefined,
+        status: sourceDoc.status,
+      },
+      {
+        type: targetDoc.documentType,
+        number: targetDoc.documentNumber,
+        amount: Number(targetDoc.amount),
+        quantity: Number(targetDoc.quantity) || undefined,
+      },
+      {
+        returnedDocs,
+        creditNoteDocs,
+        tolerance,
+      }
+    );
+  }
 
   const prismaStatus: ValidationStatus =
     validation.status === 'VALID'
@@ -725,18 +1127,26 @@ export async function validateAndSaveRelationInDb(params: {
     },
   });
 
-  // Catat ke AuditLog
-  await db.auditLog.create({
-    data: {
-      documentId: targetDoc.id,
-      action: 'VALIDATE_TRANSITION',
-      performedBy: params.performedBy || 'System Business Validator',
-      details: JSON.stringify({
-        transition: validation.transition,
-        status: validation.status,
-        passed: validation.passed,
-        discrepancy: validation.discrepancy,
-      }),
+  // Catat ke AuditLog secara append-only
+  await recordAuditLog({
+    documentId: targetDoc.id,
+    entityType: 'DOCUMENT_RELATION',
+    entityId: relation.id,
+    action: 'VALIDATE_TRANSITION',
+    performedBy: params.performedBy || 'System Business Validator',
+    actorUserId: params.actorUserId,
+    ipAddress: params.ipAddress,
+    newValues: {
+      sourceDocumentId: sourceDoc.id,
+      targetDocumentId: targetDoc.id,
+      validationStatus: prismaStatus,
+      ruleName: validation.ruleName,
+    },
+    details: {
+      transition: validation.transition,
+      status: validation.status,
+      passed: validation.passed,
+      discrepancy: validation.discrepancy,
     },
   });
 

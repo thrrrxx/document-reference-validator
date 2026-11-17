@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { syncAccurateToPostgre, getAccurateEnvConfig } from '@/lib/accurate';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { z } from 'zod';
 
 const syncRequestSchema = z.object({
-  syncTypes: z.array(z.enum(['PO', 'GR', 'INVOICE', 'ITEMS'])).optional(),
+  syncTypes: z.array(z.enum(['PO', 'GR', 'PI', 'INVOICE', 'ITEMS'])).optional(),
   performedBy: z.string().optional(),
 });
 
@@ -12,7 +13,10 @@ const syncRequestSchema = z.object({
  * GET /api/accurate/sync
  * Melihat riwayat sinkronisasi Accurate Online dengan database PostgreSQL.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await requireAuth(request, ['ACCURATE_READ']);
+  if (auth.error) return auth.error;
+
   try {
     const config = getAccurateEnvConfig();
     const hasToken = Boolean(config.accessToken);
@@ -75,6 +79,9 @@ export async function GET() {
  * }
  */
 export async function POST(request: Request) {
+  const auth = await requireAuth(request, ['ACCURATE_SYNC']);
+  if (auth.error) return auth.error;
+
   try {
     let body = {};
     try {
@@ -93,7 +100,9 @@ export async function POST(request: Request) {
 
     const result = await syncAccurateToPostgre({
       syncTypes: parsed.data.syncTypes,
-      performedBy: parsed.data.performedBy || 'API Manual Trigger',
+      performedBy: auth.user.displayName,
+      actorUserId: auth.user.id,
+      ipAddress: auth.user.ipAddress,
     });
 
     return NextResponse.json({

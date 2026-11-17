@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { openAccurateDb, getAccurateEnvConfig } from '@/lib/accurate';
+import { requireAuth } from '@/lib/auth';
 import { z } from 'zod';
 
 const openDbSchema = z.object({
@@ -13,6 +14,9 @@ const openDbSchema = z.object({
  * Sesuai dokumentasi: GET https://account.accurate.id/api/open-db.do?id=<dbId>
  */
 export async function POST(request: Request) {
+  const auth = await requireAuth(request, ['ACCURATE_READ']);
+  if (auth.error) return auth.error;
+
   try {
     let body = {};
     try {

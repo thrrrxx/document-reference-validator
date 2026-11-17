@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { DocumentType, DocumentStatus, ValidationStatus } from '@prisma/client';
 import { DocumentFlowCode, DocumentFlowStep, ReferenceItem } from '@/lib/mock-references';
 import { validateAndSaveRelationInDb } from '@/lib/validators/p2p-validator';
+import { recordAuditLog } from '@/lib/audit';
 
 export const PIPELINE_STEPS: { code: DocumentFlowCode; label: string; docType: DocumentType }[] = [
   { code: 'BOM', label: 'Bill of Materials', docType: DocumentType.BOM },
@@ -11,6 +12,18 @@ export const PIPELINE_STEPS: { code: DocumentFlowCode; label: string; docType: D
   { code: 'PI', label: 'Purchase Invoice', docType: DocumentType.PI },
   { code: 'PP', label: 'Payment Proof', docType: DocumentType.PP },
 ];
+
+const STEP_ORDER: Record<DocumentType, number> = {
+  [DocumentType.BOM]: 0,
+  [DocumentType.PR]: 1,
+  [DocumentType.PO]: 2,
+  [DocumentType.GR]: 3,
+  [DocumentType.PURCHASE_RETURN]: 3,
+  [DocumentType.PI]: 4,
+  [DocumentType.INVOICE]: 4,
+  [DocumentType.CREDIT_NOTE]: 4,
+  [DocumentType.PP]: 5,
+};
 
 function formatRupiah(amount: number): string {
   return new Intl.NumberFormat('id-ID', {
@@ -148,6 +161,8 @@ export async function createFlowInDb(data: {
   vendor: string;
   totalAmount: number;
   managedBy?: string;
+  actorUserId?: string;
+  ipAddress?: string;
   steps: Partial<
     Record<
       DocumentFlowCode,
@@ -161,6 +176,7 @@ export async function createFlowInDb(data: {
 }): Promise<ReferenceItem> {
   const flowId = `FLOW-${Math.floor(1000 + Math.random() * 9000)}`;
   const createdDocIds: string[] = [];
+  const actorName = data.managedBy || 'User Dashboard';
 
   for (const stepMeta of PIPELINE_STEPS) {
     const stepData = data.steps[stepMeta.code];
@@ -180,20 +196,30 @@ export async function createFlowInDb(data: {
           notes: stepData.notes || `Tahap ${stepMeta.code} pada alur ${flowId}`,
           status: DocumentStatus.SUBMITTED,
           validationStatus: ValidationStatus.VALID,
-          createdBy: data.managedBy || 'User Dashboard',
+          createdBy: actorName,
         },
       });
 
       createdDocIds.push(createdDoc.id);
 
-      // Catat ke AuditLog
-      await db.auditLog.create({
-        data: {
-          documentId: createdDoc.id,
-          action: 'CREATE_DOCUMENT_STEP',
-          performedBy: data.managedBy || 'User Dashboard',
-          details: JSON.stringify({ flowId, step: stepMeta.code, docNumber: stepData.docNumber }),
+      // Catat ke AuditLog (append-only dengan snapshot newValues)
+      await recordAuditLog({
+        documentId: createdDoc.id,
+        entityType: 'DOCUMENT',
+        entityId: createdDoc.id,
+        action: 'CREATE_DOCUMENT_STEP',
+        performedBy: actorName,
+        actorUserId: data.actorUserId,
+        ipAddress: data.ipAddress,
+        newValues: {
+          flowId,
+          documentType: createdDoc.documentType,
+          documentNumber: createdDoc.documentNumber,
+          vendor: createdDoc.vendor,
+          amount: Number(createdDoc.amount),
+          status: createdDoc.status,
         },
+        details: { flowId, step: stepMeta.code, docNumber: stepData.docNumber },
       });
     }
   }
@@ -205,7 +231,9 @@ export async function createFlowInDb(data: {
         sourceDocumentId: createdDocIds[i],
         targetDocumentId: createdDocIds[i + 1],
         relationData: { amount: data.totalAmount },
-        performedBy: data.managedBy || 'User Dashboard',
+        performedBy: actorName,
+        actorUserId: data.actorUserId,
+        ipAddress: data.ipAddress,
       });
     } catch {
       // Abaikan jika sudah ada
@@ -231,15 +259,35 @@ export async function linkDocumentToFlowInDb(data: {
   date?: string;
   notes?: string;
   performedBy?: string;
+  actorUserId?: string;
+  ipAddress?: string;
 }): Promise<ReferenceItem> {
   const stepMeta = PIPELINE_STEPS.find((p) => p.code === data.code);
   if (!stepMeta) {
     throw new Error(`Kode tahap ${data.code} tidak valid`);
   }
 
+  const actorName = data.performedBy || 'User Dashboard';
+  const normalizedDocNumber = data.docNumber.trim();
+
   // Ambil dokumen yang sudah ada pada flow ini untuk mewarisi judul, vendor, & amount
   const existingDocs = await db.document.findMany({
     where: { referenceNumber: data.flowId },
+  });
+
+  // Tangkap state lama jika documentNumber sudah pernah ada sebelumnya (untuk diff audit)
+  const existingTarget = await db.document.findUnique({
+    where: { documentNumber: normalizedDocNumber },
+    select: {
+      id: true,
+      documentType: true,
+      documentNumber: true,
+      referenceNumber: true,
+      vendor: true,
+      amount: true,
+      notes: true,
+      status: true,
+    },
   });
 
   const parent = existingDocs[0];
@@ -251,7 +299,7 @@ export async function linkDocumentToFlowInDb(data: {
 
   // Simpan dokumen baru ke PostgreSQL
   const newDoc = await db.document.upsert({
-    where: { documentNumber: data.docNumber.trim() },
+    where: { documentNumber: normalizedDocNumber },
     update: {
       referenceNumber: data.flowId,
       documentType: stepMeta.docType,
@@ -262,7 +310,7 @@ export async function linkDocumentToFlowInDb(data: {
     },
     create: {
       documentType: stepMeta.docType,
-      documentNumber: data.docNumber.trim(),
+      documentNumber: normalizedDocNumber,
       referenceNumber: data.flowId,
       documentDate: docDate,
       vendor,
@@ -272,33 +320,78 @@ export async function linkDocumentToFlowInDb(data: {
       notes: data.notes || `Dilengkapi melalui alur ${data.flowId}`,
       status: DocumentStatus.APPROVED,
       validationStatus: ValidationStatus.VALID,
-      createdBy: data.performedBy || 'User Dashboard',
+      createdBy: actorName,
     },
   });
 
-  // Hubungkan dengan dokumen sebelumnya dalam alur jika ada
-  if (existingDocs.length > 0) {
-    const lastDoc = existingDocs[existingDocs.length - 1];
+  // Hubungkan relasi sesuai urutan tahap PIPELINE_STEPS (BOM -> PR -> PO -> GR -> PI -> PP)
+  const currentRank = STEP_ORDER[newDoc.documentType];
+  const otherDocs = existingDocs
+    .filter((d) => d.id !== newDoc.id)
+    .sort((a, b) => STEP_ORDER[a.documentType] - STEP_ORDER[b.documentType]);
+
+  const precedingDocs = otherDocs.filter((d) => STEP_ORDER[d.documentType] < currentRank);
+  const succeedingDocs = otherDocs.filter((d) => STEP_ORDER[d.documentType] > currentRank);
+
+  const prevDoc = precedingDocs[precedingDocs.length - 1];
+  const nextDoc = succeedingDocs[0];
+
+  if (prevDoc) {
     try {
       await validateAndSaveRelationInDb({
-        sourceDocumentId: lastDoc.id,
+        sourceDocumentId: prevDoc.id,
         targetDocumentId: newDoc.id,
         relationData: { amount },
-        performedBy: data.performedBy || 'User Dashboard',
+        performedBy: actorName,
+        actorUserId: data.actorUserId,
+        ipAddress: data.ipAddress,
       });
     } catch {
       // Abaikan jika relasi sudah ada
     }
   }
 
-  // Catat AuditLog
-  await db.auditLog.create({
-    data: {
-      documentId: newDoc.id,
-      action: 'LINK_DOCUMENT_STEP',
-      performedBy: data.performedBy || 'User Dashboard',
-      details: JSON.stringify({ flowId: data.flowId, step: data.code, docNumber: data.docNumber }),
+  if (nextDoc) {
+    try {
+      await validateAndSaveRelationInDb({
+        sourceDocumentId: newDoc.id,
+        targetDocumentId: nextDoc.id,
+        relationData: { amount },
+        performedBy: actorName,
+        actorUserId: data.actorUserId,
+        ipAddress: data.ipAddress,
+      });
+    } catch {
+      // Abaikan jika relasi sudah ada
+    }
+  }
+
+  // Catat AuditLog secara append-only dengan before/after diff
+  await recordAuditLog({
+    documentId: newDoc.id,
+    entityType: 'DOCUMENT',
+    entityId: newDoc.id,
+    action: existingTarget ? 'UPDATE_LINK_DOCUMENT_STEP' : 'LINK_DOCUMENT_STEP',
+    performedBy: actorName,
+    actorUserId: data.actorUserId,
+    ipAddress: data.ipAddress,
+    oldValues: existingTarget
+      ? {
+          ...existingTarget,
+          amount: Number(existingTarget.amount),
+        }
+      : null,
+    newValues: {
+      id: newDoc.id,
+      documentType: newDoc.documentType,
+      documentNumber: newDoc.documentNumber,
+      referenceNumber: newDoc.referenceNumber,
+      vendor: newDoc.vendor,
+      amount: Number(newDoc.amount),
+      notes: newDoc.notes,
+      status: newDoc.status,
     },
+    details: { flowId: data.flowId, step: data.code, docNumber: normalizedDocNumber },
   });
 
   const allFlows = await getAllFlowsFromDb();
@@ -313,11 +406,24 @@ export async function linkDocumentToFlowInDb(data: {
 /**
  * Menghapus seluruh dokumen pada satu alur dari PostgreSQL
  */
-export async function deleteFlowFromDb(flowId: string) {
+export async function deleteFlowFromDb(
+  flowId: string,
+  actor?: { performedBy?: string; actorUserId?: string; ipAddress?: string }
+) {
+  const selectFields = {
+    id: true,
+    documentNumber: true,
+    documentType: true,
+    referenceNumber: true,
+    vendor: true,
+    amount: true,
+    status: true,
+  };
+
   // 1. Cari dokumen berdasarkan referenceNumber (Flow ID standar seperti FLOW-8921)
   let docs = await db.document.findMany({
     where: { referenceNumber: flowId },
-    select: { id: true },
+    select: selectFields,
   });
 
   // 2. Fallback: jika tidak ditemukan via referenceNumber, periksa apakah flowId merupakan format fallback (FLOW-DOC-<suffix>) atau ID dokumen langsung
@@ -332,7 +438,7 @@ export async function deleteFlowFromDb(flowId: string) {
             { documentNumber: suffix },
           ],
         },
-        select: { id: true },
+        select: selectFields,
       });
     } else {
       docs = await db.document.findMany({
@@ -342,7 +448,7 @@ export async function deleteFlowFromDb(flowId: string) {
             { documentNumber: flowId },
           ],
         },
-        select: { id: true },
+        select: selectFields,
       });
     }
   }
@@ -353,16 +459,29 @@ export async function deleteFlowFromDb(flowId: string) {
     throw new Error(`Alur atau dokumen "${flowId}" tidak ditemukan di database.`);
   }
 
-  // Hapus relations & audit logs & items & validation results
+  // Catat AuditLog penghapusan sebelum dokumen dihapus (append-only, auditLog lama dipertahankan via SetNull)
+  await recordAuditLog({
+    documentId: null,
+    entityType: 'FLOW',
+    entityId: flowId,
+    action: 'DELETE_FLOW',
+    performedBy: actor?.performedBy || 'User Dashboard',
+    actorUserId: actor?.actorUserId,
+    ipAddress: actor?.ipAddress,
+    oldValues: docs.map((d) => ({
+      ...d,
+      amount: Number(d.amount),
+    })),
+    details: { flowId, deletedCount: docIds.length },
+  });
+
+  // Hapus relations, items, validation results, dan syncHistory terkait (auditLog tetap utuh!)
   await db.documentRelation.deleteMany({
     where: {
       OR: [{ sourceDocumentId: { in: docIds } }, { targetDocumentId: { in: docIds } }],
     },
   });
   await db.documentItem.deleteMany({
-    where: { documentId: { in: docIds } },
-  });
-  await db.auditLog.deleteMany({
     where: { documentId: { in: docIds } },
   });
   await db.validationResult.deleteMany({

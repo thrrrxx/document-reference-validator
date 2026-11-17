@@ -12,12 +12,17 @@ import {
   Plus
 } from 'lucide-react';
 import { getAllFlowsFromDb } from '@/lib/references-service';
+import { getExecutiveAnalytics } from '@/lib/analytics-service';
+import ExecutiveAnalyticsPanel from '@/components/analytics/ExecutiveAnalyticsPanel';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function DashboardPage() {
-  const flows = await getAllFlowsFromDb();
+  const [flows, analytics] = await Promise.all([
+    getAllFlowsFromDb(),
+    getExecutiveAnalytics(),
+  ]);
 
   const totalCount = flows.length;
   const missingCount = flows.filter((r) => r.status === 'missing').length;
@@ -279,6 +284,9 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* 5. Executive ERP Analytics, Lead-Time Bottleneck, Open PO Aging & GRNI */}
+      <ExecutiveAnalyticsPanel data={analytics} />
     </div>
   );
 }

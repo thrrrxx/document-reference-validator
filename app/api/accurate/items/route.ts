@@ -5,6 +5,7 @@ import {
   saveAccurateItem,
 } from '@/lib/accurate';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { DocumentType, DocumentStatus, ValidationStatus } from '@prisma/client';
 import { z } from 'zod';
 
@@ -28,6 +29,9 @@ const saveItemSchema = z.object({
  * - itemType: INVENTORY | NON_INVENTORY | SERVICE | GROUP
  */
 export async function GET(request: Request) {
+  const auth = await requireAuth(request, ['ACCURATE_READ']);
+  if (auth.error) return auth.error;
+
   try {
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('id');
@@ -72,6 +76,9 @@ export async function GET(request: Request) {
  * dan mencatat hasilnya ke database PostgreSQL Document Reference.
  */
 export async function POST(request: Request) {
+  const auth = await requireAuth(request, ['ACCURATE_PUSH']);
+  if (auth.error) return auth.error;
+
   try {
     const body = await request.json();
     const parsed = saveItemSchema.safeParse(body);
