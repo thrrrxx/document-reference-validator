@@ -134,7 +134,9 @@ export function extractClientIp(request?: Request): string {
 export function hasPermissions(role: string, required: Permission[]): boolean {
   if (required.length === 0) return true;
   const normalizedRole = (role || 'USER').toUpperCase();
-  const granted = ROLE_PERMISSIONS[normalizedRole] || [];
+  // Jika role merupakan jabatan/title kustom dari Profile Settings (di luar key RBAC ketat),
+  // gunakan izin standar USER agar pengguna tidak terkunci.
+  const granted = ROLE_PERMISSIONS[normalizedRole] ?? ROLE_PERMISSIONS.USER;
   return required.every((perm) => granted.includes(perm));
 }
 

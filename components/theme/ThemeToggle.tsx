@@ -3,6 +3,7 @@
 import React from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { useLanguage } from '@/components/i18n/LanguageContext';
 
 interface ThemeToggleProps {
   className?: string;
@@ -11,14 +12,15 @@ interface ThemeToggleProps {
 
 export default function ThemeToggle({ className = '', showLabel = false }: ThemeToggleProps) {
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
       className={`relative inline-flex items-center gap-2 p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition focus:outline-hidden ${className}`}
-      title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-      aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+      title={isDark ? t('Ubah ke Tema Terang', 'Switch to Light Mode') : t('Ubah ke Tema Gelap', 'Switch to Dark Mode')}
+      aria-label={isDark ? t('Ubah ke Tema Terang', 'Switch to Light Mode') : t('Ubah ke Tema Gelap', 'Switch to Dark Mode')}
     >
       <div className="relative w-5 h-5 flex items-center justify-center">
         {isDark ? (
@@ -29,7 +31,7 @@ export default function ThemeToggle({ className = '', showLabel = false }: Theme
       </div>
       {showLabel && (
         <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-          {isDark ? 'Light Mode' : 'Dark Mode'}
+          {isDark ? t('Tema Terang', 'Light Mode') : t('Tema Gelap', 'Dark Mode')}
         </span>
       )}
     </button>

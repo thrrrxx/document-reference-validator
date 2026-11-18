@@ -176,7 +176,7 @@ export default async function DashboardPage() {
           <div>
             <h2 className="text-base font-bold text-gray-900 dark:text-white">Validasi Alur Dokumen Terkini</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Rangkaian alur pengadaan & pemenuhan dokumen dari database PostgreSQL
+              Rangkaian alur pengadaan & pemenuhan dokumen.
             </p>
           </div>
           <Link
@@ -195,10 +195,10 @@ export default async function DashboardPage() {
             </div>
             <div className="max-w-md mx-auto">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                Database Masih Bersih (0 Alur Dokumen)
+                Tidak ada alur Dokumen
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Database PostgreSQL lokal Anda telah berhasil di-reset. Anda dapat menambahkan alur dokumen pertama secara mandiri untuk mempelajari alur kerja sistem.
+                Database alur dokumen pengadaan masih kosong. Silakan buat alur dokumen baru untuk memulai validasi.
               </p>
             </div>
             <div className="pt-2">

@@ -14,11 +14,28 @@ import {
   Camera,
   ShieldCheck,
   Calendar,
-  Save
+  Save,
+  ChevronDown
 } from 'lucide-react';
 import SettingsHeader from './SettingsHeader';
 import AvatarUploadModal from './AvatarUploadModal';
 import { INITIAL_USER_PROFILE, UserProfile } from '@/lib/mock-settings';
+
+const ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'USER', label: 'Operator' },
+  { value: 'ADMIN', label: 'Administrator' },
+  { value: 'ENGINEERING_PPIC', label: 'Engineering / PPIC (BOM & PR)' },
+  { value: 'PROCUREMENT', label: 'Procurement (PR & PO)' },
+  { value: 'IT_PURCHASING', label: 'IT Purchasing (PR & PO)' },
+  { value: 'WAREHOUSE', label: 'Warehouse (GRN)' },
+  { value: 'FINANCE', label: 'Finance & Accounting (PI & PP)' },
+  { value: 'AUDITOR', label: 'Internal Auditor (Read-Only)' },
+];
+
+function getRoleLabel(role: string): string {
+  const matched = ROLE_OPTIONS.find((r) => r.value === role.toUpperCase());
+  return matched ? matched.label : role;
+}
 
 function getInitials(name: string): string {
   if (!name) return 'U';
@@ -60,7 +77,7 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
         ...INITIAL_USER_PROFILE,
         name: initialUser.name || 'Pengguna Validex',
         email: initialUser.email,
-        role: initialUser.role === 'ADMIN' ? 'System Administrator' : (initialUser.role || 'Document Validator & Procurement'),
+        role: initialUser.role || 'USER',
         avatarUrl: initialUser.image || null,
         image: initialUser.image || null,
         memberSince: memberSinceFormatted,
@@ -123,7 +140,7 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
         ...prev,
         name: initialUser.name || 'Pengguna Validex',
         email: initialUser.email,
-        role: initialUser.role === 'ADMIN' ? 'System Administrator' : (initialUser.role || 'Document Validator & Procurement'),
+        role: initialUser.role || 'USER',
         avatarUrl: initialUser.image !== undefined ? initialUser.image : prev.avatarUrl,
         image: initialUser.image !== undefined ? initialUser.image : prev.image,
         organization: extra.organization,
@@ -166,7 +183,7 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
             ...prev,
             name: json.user.name || 'Pengguna Validex',
             email: json.user.email,
-            role: json.user.role === 'ADMIN' ? 'System Administrator' : (json.user.role || 'Document Validator & Procurement'),
+            role: json.user.role || 'USER',
             avatarUrl: json.user.image || null,
             image: json.user.image || null,
             organization: extra.organization,
@@ -373,7 +390,7 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {profile.role} • {profile.organization}
+              {getRoleLabel(profile.role)} • {profile.organization}
             </p>
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mt-3 text-xs text-gray-400">
               <span className="flex items-center gap-1">
@@ -435,19 +452,28 @@ export default function ProfileSettingsClient({ initialUser }: ProfileSettingsCl
             </div>
           </div>
 
-          {/* Designation */}
+          {/* Designation / RBAC Role */}
           <div>
             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-2">
-              Professional Role / Title
+              Role
             </label>
             <div className="relative">
-              <Briefcase className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
-              <input
-                type="text"
+              <Briefcase className="w-4 h-4 text-gray-400 absolute left-3.5 top-3 pointer-events-none" />
+              <select
                 value={profile.role}
                 onChange={(e) => setProfile({ ...profile, role: e.target.value })}
-                className="w-full bg-gray-50 dark:bg-gray-800/80 text-sm pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-gray-900 dark:text-white"
-              />
+                className="w-full appearance-none bg-gray-50 dark:bg-gray-800/80 text-sm pl-10 pr-10 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-gray-900 dark:text-white cursor-pointer"
+              >
+                {!ROLE_OPTIONS.some((opt) => opt.value === profile.role.toUpperCase()) && (
+                  <option value={profile.role}>{profile.role} (Custom / Legacy)</option>
+                )}
+                {ROLE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3.5 top-3 pointer-events-none" />
             </div>
           </div>
 

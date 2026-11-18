@@ -21,6 +21,7 @@ import {
   CheckSquare,
 } from 'lucide-react';
 import type { ExecutiveAnalyticsData } from '@/lib/analytics-service';
+import { useLanguage } from '@/components/i18n/LanguageContext';
 
 interface ExecutiveAnalyticsPanelProps {
   data: ExecutiveAnalyticsData;
@@ -35,6 +36,7 @@ function formatIdr(amount: number): string {
 }
 
 export default function ExecutiveAnalyticsPanel({ data }: ExecutiveAnalyticsPanelProps) {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'exceptions' | 'grni' | 'aging'>('exceptions');
 
   const maxHours = Math.max(...data.leadTimeMetrics.map((m) => m.avgHours), 0);
@@ -45,10 +47,13 @@ export default function ExecutiveAnalyticsPanel({ data }: ExecutiveAnalyticsPane
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">
-            Executive ERP Analytics & Bottleneck Monitor
+            {t('Analitik ERP Eksekutif & Pemantau Bottleneck', 'Executive ERP Analytics & Bottleneck Monitor')}
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Pemantauan waktu siklus pengadaan, akrual GRNI, aging Open PO, dan antrean exception.
+            {t(
+              'Pemantauan waktu siklus pengadaan, akrual GRNI, aging Open PO, dan antrean exception.',
+              'Procurement cycle time monitoring, GRNI accrual, Open PO aging, and exception queue.'
+            )}
           </p>
         </div>
         <a
@@ -56,7 +61,7 @@ export default function ExecutiveAnalyticsPanel({ data }: ExecutiveAnalyticsPane
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition shadow-xs w-fit"
         >
           <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <span>Ekspor Laporan Audit (CSV)</span>
+          <span>{t('Ekspor Laporan Audit (CSV)', 'Export Audit Report (CSV)')}</span>
         </a>
       </div>
 

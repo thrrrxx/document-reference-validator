@@ -30,7 +30,7 @@ import {
 import { ReferenceItem, DocumentFlowStep, DocumentFlowCode } from '@/lib/mock-references';
 import DocumentLineageGraph from '@/components/references/DocumentLineageGraph';
 
-export default function ReferencesClient() {
+export default function ReferencesClient({ initialFlows = [] }: { initialFlows?: ReferenceItem[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -39,8 +39,8 @@ export default function ReferencesClient() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>(normalizedInitialStatus);
-  const [references, setReferences] = useState<ReferenceItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [references, setReferences] = useState<ReferenceItem[]>(initialFlows);
+  const [isLoading, setIsLoading] = useState<boolean>(initialFlows.length === 0);
   const [selectedRef, setSelectedRef] = useState<ReferenceItem | null>(null);
   const [detailViewMode, setDetailViewMode] = useState<'checklist' | 'graph'>('checklist');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -87,19 +87,25 @@ export default function ReferencesClient() {
     setIsLoading(true);
     try {
       const res = await fetch('/api/references');
+      if (res.status === 401) {
+        router.push('/auth/login?redirect=/dashboard/references');
+        return;
+      }
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setReferences(json.data);
         if (typeof window !== 'undefined' && json.stats) {
           window.dispatchEvent(new CustomEvent('references-updated', { detail: json.stats }));
         }
+      } else if (!json.success) {
+        setToastMessage(json.message || 'Gagal mengambil alur dokumen dari database.');
       }
     } catch (err) {
       console.error('Gagal mengambil alur dokumen dari database:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     fetchFlows();
@@ -327,7 +333,7 @@ export default function ReferencesClient() {
             </span>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Validasi urutan dokumen lokal: <span className="font-semibold text-blue-600 dark:text-blue-400">BOM → PR → PO → GRN → PI → PP</span>. Data disimpan langsung ke database PostgreSQL lokal Anda.
+            Validasi urutan dokumen lokal: <span className="font-semibold text-blue-600 dark:text-blue-400">BOM → PR → PO → GRN → PI → PP</span>
           </p>
         </div>
         <div className="flex items-center gap-2.5">

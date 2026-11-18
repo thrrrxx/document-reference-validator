@@ -5,12 +5,15 @@ import Link from 'next/link';
 import { Menu, Search } from 'lucide-react';
 import Sidebar from './Sidebar';
 import ThemeToggle from '@/components/theme/ThemeToggle';
+import LanguageToggle from '@/components/i18n/LanguageToggle';
+import { useLanguage } from '@/components/i18n/LanguageContext';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
+  const { t } = useLanguage();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userInitials, setUserInitials] = useState<string>('U');
   const [userImage, setUserImage] = useState<string | null>(null);
@@ -90,7 +93,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search references, documents, or tags..."
+                placeholder={t('Cari referensi, dokumen, atau tag...', 'Search references, documents, or tags...')}
                 className="w-full bg-gray-50/80 dark:bg-gray-800/80 hover:bg-gray-50 dark:hover:bg-gray-800 focus:bg-white dark:focus:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 pl-10 pr-12 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
               />
               <div className="absolute right-2.5 top-2.5 flex items-center gap-0.5 pointer-events-none">
@@ -108,6 +111,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Validator Online</span>
             </div>
+
+            {/* Language Switcher (ID / EN) */}
+            <LanguageToggle />
 
             {/* Theme Toggle Button (Light/Dark Mode) */}
             <ThemeToggle />

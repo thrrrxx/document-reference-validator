@@ -15,6 +15,7 @@ import {
   X,
   ShieldCheck
 } from 'lucide-react';
+import { useLanguage } from '@/components/i18n/LanguageContext';
 
 interface SubItem {
   name: string;
@@ -24,6 +25,7 @@ interface SubItem {
 
 interface NavItem {
   name: string;
+  label: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
@@ -39,6 +41,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [missingCount, setMissingCount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<{
@@ -111,34 +114,37 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
   const navigationItems: NavItem[] = useMemo(() => [
     {
       name: 'Home',
+      label: t('Beranda', 'Home'),
       path: '/dashboard',
       icon: Home,
     },
     {
       name: 'References',
+      label: t('Dokumen', 'References'),
       path: '/dashboard/references',
       icon: Search,
       badge: missingCount > 0 ? missingCount : undefined,
       subItems: [
-        { name: 'All Document', path: '/dashboard/references' },
+        { name: t('Semua Dokumen', 'All Document'), path: '/dashboard/references' },
         {
-          name: 'Missing',
+          name: t('Belum Lengkap', 'Missing'),
           path: '/dashboard/references?status=missing',
           badge: missingCount > 0 ? missingCount : undefined,
         },
-        { name: 'Complete', path: '/dashboard/references?status=complete' },
+        { name: t('Lengkap', 'Complete'), path: '/dashboard/references?status=complete' },
       ],
     },
     {
       name: 'Settings',
+      label: t('Pengaturan', 'Settings'),
       path: '/dashboard/settings',
       icon: Settings,
       subItems: [
-        { name: 'Profile', path: '/dashboard/settings/profile' },
-        { name: 'Security', path: '/dashboard/settings/security' },
+        { name: t('Profil', 'Profile'), path: '/dashboard/settings/profile' },
+        { name: t('Keamanan', 'Security'), path: '/dashboard/settings/security' },
       ],
     },
-  ], [missingCount]);
+  ], [missingCount, t]);
 
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({
     References: true, // Default open References as primary focus
@@ -292,7 +298,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
                         parentActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'
                       }`}
                     />
-                    <span>{item.name}</span>
+                    <span>{item.label}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {Boolean(item.badge && item.badge > 0) && (
@@ -325,7 +331,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
                         parentActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
                       }`}
                     />
-                    <span>{item.name}</span>
+                    <span>{item.label}</span>
                   </div>
                   {Boolean(item.badge && item.badge > 0) && (
                     <span className="px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full">
@@ -372,7 +378,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="px-3 pb-2 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-          Support
+          {t('Bantuan', 'Support')}
         </div>
 
         <Link
@@ -385,7 +391,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
           }`}
         >
           <HelpCircle className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-          <span>Help & Support</span>
+          <span>{t('Pusat Bantuan', 'Help & Support')}</span>
         </Link>
       </nav>
 
@@ -395,7 +401,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
         {isProfileMenuOpen && (
           <div className="absolute bottom-full left-3 right-3 mb-2 bg-white dark:bg-[#1E293B] rounded-xl shadow-xl border border-gray-100 dark:border-gray-700/80 py-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
             <div className="px-3.5 py-2 border-b border-gray-100 dark:border-gray-700/80">
-              <p className="text-xs font-semibold text-gray-900 dark:text-white">Signed in as</p>
+              <p className="text-xs font-semibold text-gray-900 dark:text-white">{t('Masuk sebagai', 'Signed in as')}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userDisplayEmail || userDisplayName}</p>
             </div>
 
@@ -408,7 +414,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
               className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60 hover:text-gray-900 dark:hover:text-white transition"
             >
               <User className="w-4 h-4 text-gray-400 dark:text-gray-400" />
-              <span>My Profile</span>
+              <span>{t('Profil Saya', 'My Profile')}</span>
             </Link>
 
             <Link
@@ -420,7 +426,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
               className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60 hover:text-gray-900 dark:hover:text-white transition"
             >
               <Settings className="w-4 h-4 text-gray-400 dark:text-gray-400" />
-              <span>Settings</span>
+              <span>{t('Pengaturan', 'Settings')}</span>
             </Link>
 
             <div className="border-t border-gray-100 dark:border-gray-700/80 my-1" />
@@ -431,7 +437,7 @@ function SidebarNavInner({ onClose }: { onClose: () => void }) {
               className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition text-left cursor-pointer"
             >
               <LogOut className="w-4 h-4 text-red-500 dark:text-red-400" />
-              <span>Sign Out</span>
+              <span>{t('Keluar', 'Sign Out')}</span>
             </button>
           </div>
         )}
